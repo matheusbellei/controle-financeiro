@@ -1,0 +1,16 @@
+{
+  "name": "claude",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "sh tests/db/start-pg.sh && node --test \"tests/**/*.test.mjs\" && cd tests/ui && python3 -W ignore -m unittest -q 2>&1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module"
+}

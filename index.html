@@ -1,0 +1,1673 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Controle de Finanças Pessoais</title>
+<meta name="theme-color" content="#3B2416">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* === 1 ESTILOS === */
+:root {
+  --espresso: #3B2416; --mocha: #6F4E37; --caramelo: #C68B59; --latte: #E8D3B9;
+  --creme: #F5EBDD; --espuma: #FBF6EF; --receita: #5B7A3A; --alerta: #B5543A;
+  --texto-suave: #7A5C46; --linha: #E2CDB2; --raio: 12px;
+  --fonte: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --fonte-titulo: 'Fraunces', Georgia, serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--creme); color: var(--espresso); font-family: var(--fonte); font-size: 15px; line-height: 1.45; }
+body { min-height: 100vh; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+h1, h2, h3 { font-family: var(--fonte-titulo); font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: 22px; } h2 { font-size: 18px; } h3 { font-size: 15px; font-family: var(--fonte); }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+.ti { font-size: 20px; vertical-align: -3px; }
+
+/* Botões e campos */
+.btn { border: 1px solid var(--latte); background: var(--espuma); border-radius: 10px; padding: 9px 14px; display: inline-flex; align-items: center; gap: 6px; }
+.btn:hover { border-color: var(--caramelo); }
+.btn-principal { background: var(--espresso); color: var(--espuma); border-color: var(--espresso); font-weight: 600; }
+.btn-principal:hover { background: var(--mocha); }
+.btn-perigo { color: var(--alerta); }
+.btn-icone { border: none; background: none; padding: 6px; border-radius: 8px; color: var(--mocha); }
+.btn-icone:hover { background: var(--latte); }
+.campo { display: block; margin-top: 12px; }
+.campo > span { display: block; font-size: 12px; color: var(--texto-suave); margin-bottom: 4px; }
+.campo input, .campo select { width: 100%; background: var(--espuma); border: 1px solid #D9BFA0; border-radius: 10px; padding: 10px 12px; }
+.campo input:focus, .campo select:focus { outline: 2px solid var(--caramelo); outline-offset: 0; }
+.erro { color: var(--alerta); font-size: 13px; min-height: 18px; margin-top: 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: none; background: var(--latte); color: var(--espresso); border-radius: 999px; padding: 6px 12px; font-size: 13px; display: inline-flex; align-items: center; gap: 4px; }
+.chip.ativo { background: var(--mocha); color: var(--espuma); }
+.chip .ti { font-size: 15px; vertical-align: 0; }
+.cartao { background: var(--espuma); border-radius: var(--raio); padding: 14px; }
+.vazio { text-align: center; color: var(--texto-suave); padding: 28px 12px; }
+.suave { color: var(--texto-suave); font-size: 13px; }
+.positivo { color: var(--receita); }
+.negativo { color: var(--alerta); }
+
+/* Login */
+#tela-login { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
+#tela-login .cartao { width: 100%; max-width: 360px; padding: 28px 22px; }
+#tela-login .marca { text-align: center; margin-bottom: 8px; }
+#tela-login .marca .ti { font-size: 40px; color: var(--mocha); }
+#tela-login .btn-principal { width: 100%; justify-content: center; margin-top: 16px; padding: 12px; }
+
+/* Cabeçalho e menu */
+#cabecalho { position: sticky; top: 0; z-index: 20; background: var(--espresso); color: var(--espuma); display: flex; align-items: center; gap: 8px; padding: 10px 12px; }
+#cabecalho .btn-icone { color: var(--espuma); }
+#cabecalho .btn-icone:hover { background: var(--mocha); }
+#cabecalho-titulo { font-family: var(--fonte-titulo); font-size: 18px; flex: 1; }
+#menu { position: absolute; top: 100%; left: 0; right: 0; background: var(--espresso); padding: 6px 8px 12px; display: grid; gap: 2px; box-shadow: 0 8px 20px rgba(59,36,22,.25); }
+#menu button { background: none; border: none; color: var(--espuma); text-align: left; padding: 11px 12px; border-radius: 8px; display: flex; gap: 10px; align-items: center; }
+#menu button:hover, #menu button.ativo { background: var(--mocha); }
+main { max-width: 980px; margin: 0 auto; padding: 14px 16px 110px; }
+.tela { display: grid; gap: 14px; min-height: 40px; }
+.barra-titulo { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+
+/* Navegação de mês */
+.nav-mes { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.nav-mes h1 { text-align: center; flex: 1; }
+.resumo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.resumo .cartao.livre { grid-column: 1 / -1; }
+.resumo .cartao { padding: 10px 12px; }
+.resumo .rotulo { font-size: 12px; color: var(--texto-suave); }
+.resumo .valor { font-size: 17px; font-weight: 600; }
+.barra { height: 8px; border-radius: 4px; background: var(--latte); overflow: hidden; margin-top: 4px; }
+.barra > div { height: 100%; background: var(--caramelo); border-radius: 4px; }
+.barra.atencao > div { background: #D08A3E; }
+.barra.estourou > div { background: var(--alerta); }
+.orcamento + .orcamento { margin-top: 10px; }
+.orcamento .linha-topo { display: flex; justify-content: space-between; font-size: 13px; }
+
+/* Lista de lançamentos */
+.lista { background: var(--espuma); border-radius: var(--raio); }
+.item { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-bottom: 1px solid var(--linha); }
+.item:last-child { border-bottom: none; }
+.item .icone-tag { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; color: var(--espuma); flex: none; }
+.item .icone-tag .ti { font-size: 18px; vertical-align: 0; }
+.item .meio { flex: 1; min-width: 0; }
+.item .desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item .det { font-size: 12px; color: var(--texto-suave); }
+.item .valor { font-weight: 600; white-space: nowrap; }
+.item .acoes { display: flex; }
+.filtros { display: grid; gap: 8px; }
+.filtros input, .filtros select { background: var(--espuma); border: 1px solid #D9BFA0; border-radius: 10px; padding: 8px 10px; width: 100%; }
+.filtros .linha { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* Botão flutuante */
+#novo-lancamento { position: fixed; right: 16px; bottom: 20px; z-index: 15; border: none; background: var(--espresso); color: var(--espuma); border-radius: 999px; padding: 14px 20px; font-weight: 600; box-shadow: 0 6px 18px rgba(59,36,22,.35); display: flex; gap: 6px; align-items: center; }
+#novo-lancamento:hover { background: var(--mocha); }
+
+/* Janela (painel de baixo no celular, janela central no computador) */
+#modal-fundo { position: fixed; inset: 0; z-index: 30; background: rgba(59,36,22,.45); display: flex; align-items: flex-end; justify-content: center; }
+#modal { background: var(--creme); width: 100%; max-width: 520px; max-height: 92vh; overflow-y: auto; border-radius: 18px 18px 0 0; padding: 18px 16px 22px; }
+#modal .topo { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.valor-grande { font-size: 30px; font-weight: 600; text-align: center; background: none; border: none; width: 100%; padding: 8px 0; border-bottom: 2px solid var(--latte); }
+.valor-grande:focus { outline: none; border-color: var(--caramelo); }
+.aviso-credito { font-size: 12px; color: var(--mocha); margin-top: 6px; }
+.rodape-modal { display: flex; gap: 8px; margin-top: 18px; }
+.rodape-modal .btn-principal { flex: 1; justify-content: center; padding: 12px; }
+
+/* Aviso rápido */
+#aviso { position: fixed; left: 50%; transform: translateX(-50%); bottom: 90px; z-index: 40; background: var(--espresso); color: var(--espuma); padding: 10px 16px; border-radius: 10px; font-size: 14px; max-width: 90vw; }
+#aviso.erro-aviso { background: var(--alerta); }
+
+/* Grades de tags, metas, ano */
+.grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.tag-linha { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--linha); }
+.grupo-subtag h3 { padding: 12px 12px 4px; color: var(--mocha); display: flex; gap: 8px; align-items: center; }
+.tag-linha.arquivada { opacity: .55; }
+.bolinha { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; color: var(--espuma); flex: none; }
+.bolinha .ti { font-size: 15px; vertical-align: 0; }
+.paleta { display: flex; flex-wrap: wrap; gap: 6px; }
+.paleta button { width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; }
+.paleta button.ativo { border-color: var(--espresso); }
+.icones { display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 4px; }
+.icones button { border: 1px solid transparent; background: var(--espuma); border-radius: 8px; padding: 6px 0; }
+.icones button.ativo { border-color: var(--mocha); background: var(--latte); }
+.mes-ano { cursor: pointer; border: 1px solid transparent; }
+.mes-ano:hover { border-color: var(--caramelo); }
+.grafico { position: relative; height: 260px; }
+.filtros-graf { margin-top: 8px; }
+.filtros-graf select.chip { border: 1px solid var(--latte); padding: 5px 8px; }
+.destaque { font-size: 26px; font-weight: 600; font-family: var(--fonte-titulo); }
+
+@media (min-width: 760px) {
+  .resumo { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .resumo .cartao.livre { grid-column: auto; }
+  #modal-fundo { align-items: center; }
+  #modal { border-radius: 18px; }
+  .colunas { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 14px; align-items: start; }
+  .filtros { grid-template-columns: 2fr 1fr 1fr; } .filtros .linha { display: contents; }
+}
+/* === FIM 1 === */
+</style>
+</head>
+<body>
+<!-- === 2 ESTRUTURA === -->
+<section id="tela-login" hidden>
+  <form class="cartao" id="login-form" novalidate>
+    <div class="marca"><i class="ti ti-wallet"></i><h1>Controle de Finanças Pessoais</h1><p class="suave">Entre com a sua conta</p></div>
+    <label class="campo"><span>E-mail</span><input id="login-email" type="email" autocomplete="username" placeholder="voce@email.com"></label>
+    <label class="campo"><span>Senha</span><input id="login-senha" type="password" autocomplete="current-password"></label>
+    <div class="erro" id="login-erro" role="alert"></div>
+    <button class="btn btn-principal" id="login-entrar" type="submit">Entrar</button>
+  </form>
+</section>
+
+<div id="app" hidden>
+  <header id="cabecalho">
+    <button class="btn-icone" id="menu-botao" aria-label="Abrir menu" aria-expanded="false"><i class="ti ti-menu-2"></i></button>
+    <span id="cabecalho-titulo">Controle de Finanças Pessoais</span>
+    <span id="cabecalho-usuario" class="suave" style="color: var(--latte)"></span>
+    <nav id="menu" hidden>
+      <button data-tela="mes"><i class="ti ti-calendar-month"></i>Mês</button>
+      <button data-tela="dashboards"><i class="ti ti-chart-bar"></i>Dashboards</button>
+      <button data-tela="ano"><i class="ti ti-calendar"></i>Ano</button>
+      <button data-tela="metas"><i class="ti ti-target-arrow"></i>Metas</button>
+      <button data-tela="recorrentes"><i class="ti ti-repeat"></i>Recorrentes</button>
+      <button data-tela="tags"><i class="ti ti-tags"></i>Tags</button>
+      <button data-tela="subtags"><i class="ti ti-subtask"></i>Subtags</button>
+      <button data-tela="config"><i class="ti ti-settings"></i>Configurações</button>
+      <button id="menu-sair"><i class="ti ti-logout"></i>Sair</button>
+    </nav>
+  </header>
+  <main>
+    <section class="tela" id="tela-mes" hidden></section>
+    <section class="tela" id="tela-dashboards" hidden></section>
+    <section class="tela" id="tela-ano" hidden></section>
+    <section class="tela" id="tela-metas" hidden></section>
+    <section class="tela" id="tela-recorrentes" hidden></section>
+    <section class="tela" id="tela-tags" hidden></section>
+    <section class="tela" id="tela-subtags" hidden></section>
+    <section class="tela" id="tela-config" hidden></section>
+  </main>
+  <button id="novo-lancamento" hidden><i class="ti ti-plus"></i>Novo lançamento</button>
+</div>
+
+<div id="modal-fundo" hidden><div id="modal" role="dialog" aria-modal="true"></div></div>
+<div id="aviso" hidden role="status"></div>
+<!-- === FIM 2 === -->
+<script>
+/* === 3 ARMAZENAMENTO === */
+// Única parte do app que conversa com o banco. Para trocar de banco, troque só esta seção.
+// A publishable key pode ficar aqui: quem protege os dados é o login + RLS no Supabase.
+// NUNCA coloque aqui a secret key nem a senha do banco.
+const SUPABASE_URL = 'https://qtgkpnejimlrkjdhrqfh.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_1c18DqMugLVQfl9tK9krCA_5v0DgExJ';
+
+function traduzErro(error) {
+  const msg = String((error && error.message) || error || '');
+  if (/Invalid login credentials/i.test(msg)) return 'E-mail ou senha incorretos.';
+  if (/Email not confirmed/i.test(msg)) return 'Este e-mail ainda não foi confirmado no Supabase.';
+  if (/kind_check/i.test(msg)) return 'O banco ainda não aceita doações. No Supabase, rode o arquivo migracao-002-doacoes.sql no SQL Editor.';
+  if (/row-level security|permission denied/i.test(msg)) return 'Você só pode alterar os seus próprios dados.';
+  if (/Failed to fetch|NetworkError|network/i.test(msg)) return 'Sem conexão com o banco. Verifique a internet e tente de novo.';
+  if (/JWT|session|expired/i.test(msg)) return 'Sua sessão expirou. Entre de novo.';
+  return 'Algo deu errado: ' + msg;
+}
+
+function createStore(client) {
+  let user = null;
+  const check = ({ data, error }) => { if (error) throw new Error(traduzErro(error)); return data; };
+
+  return {
+    async signIn(email, password) {
+      const data = check(await client.auth.signInWithPassword({ email, password }));
+      user = data.user;
+      return user;
+    },
+    async signOut() { await client.auth.signOut(); user = null; },
+    async restoreSession() {
+      const { data } = await client.auth.getSession();
+      user = (data && data.session && data.session.user) || null;
+      return user;
+    },
+    currentUser() { return user; },
+    onAuthChange(cb) {
+      client.auth.onAuthStateChange((_event, session) => { user = (session && session.user) || null; cb(user); });
+    },
+
+    // O Supabase devolve no máximo 1000 linhas por vez; aqui buscamos página por página.
+    async list(table, filtros = {}) {
+      const PAGE = 1000;
+      const all = [];
+      for (let from = 0; ; from += PAGE) {
+        let q = client.from(table).select('*');
+        if (filtros.competence_from) q = q.gte('competence_date', filtros.competence_from);
+        if (filtros.competence_to) q = q.lte('competence_date', filtros.competence_to);
+        if (filtros.owner_id) q = q.eq('owner_id', filtros.owner_id);
+        q = q.order('id').range(from, from + PAGE - 1);
+        const page = check(await q) || [];
+        all.push(...page);
+        if (page.length < PAGE) return all;
+      }
+    },
+    async insert(table, rows) {
+      const list = Array.isArray(rows) ? rows : [rows];
+      return check(await client.from(table).insert(list).select()) || [];
+    },
+    async update(table, id, campos) {
+      const data = check(await client.from(table).update(campos).eq('id', id).select());
+      // Com RLS, editar algo que não é seu não dá erro: simplesmente não altera nada.
+      if (!data || data.length === 0) throw new Error(traduzErro('row-level security'));
+      return data[0];
+    },
+    async remove(table, id) { check(await client.from(table).delete().eq('id', id)); },
+    async removeWhere(table, where) {
+      let q = client.from(table).delete();
+      for (const k of Object.keys(where)) q = q.eq(k, where[k]);
+      check(await q);
+    },
+  };
+}
+/* === FIM 3 === */
+
+/* === 4 MODELO E REGRAS === */
+// Funções puras: sem tela e sem rede. Testadas em tests/regras.test.mjs.
+// Datas sempre como texto 'AAAA-MM-DD'; contas feitas em UTC para não mudar o dia por fuso.
+
+function isoFromUTC(y, m0, d) {
+  const dt = new Date(Date.UTC(y, m0, d));
+  return dt.toISOString().slice(0, 10);
+}
+function parts(iso) {
+  return { y: Number(iso.slice(0, 4)), m0: Number(iso.slice(5, 7)) - 1, d: Number(iso.slice(8, 10)) };
+}
+function daysInMonth(y, m0) { return new Date(Date.UTC(y, m0 + 1, 0)).getUTCDate(); }
+function addMonths(monthISO, n) { const p = parts(monthISO); return isoFromUTC(p.y, p.m0 + n, 1); }
+function monthStart(iso) { return iso.slice(0, 7) + '-01'; }
+function monthEnd(iso) { const p = parts(iso); return isoFromUTC(p.y, p.m0, daysInMonth(p.y, p.m0)); }
+function todayISO() {
+  const d = new Date();
+  return isoFromUTC(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+// Crédito conta no dia 10 do mês seguinte à compra; o resto conta na própria data.
+function competenceDate(purchaseISO, payment) {
+  if (payment !== 'credito') return purchaseISO;
+  const p = parts(purchaseISO);
+  return isoFromUTC(p.y, p.m0 + 1, 10);
+}
+
+// Soma n meses mantendo o dia (31/01 + 1 mês = 28/02).
+function addMonthsDay(iso, n) {
+  const p = parts(iso);
+  const alvo = new Date(Date.UTC(p.y, p.m0 + n, 1));
+  const y = alvo.getUTCFullYear(), m0 = alvo.getUTCMonth();
+  return isoFromUTC(y, m0, Math.min(p.d, daysInMonth(y, m0)));
+}
+
+// Divide uma compra no crédito em n parcelas; os centavos que sobram vão na 1ª.
+// primeiraFatura: data em que a 1ª parcela cai no cartão (padrão: dia 10 do mês seguinte).
+function splitInstallments(totalCents, n, purchaseISO, primeiraFatura) {
+  const base = Math.trunc(totalCents / n);
+  const rest = totalCents - base * n;
+  const primeira = primeiraFatura || competenceDate(purchaseISO, 'credito');
+  const out = [];
+  for (let k = 1; k <= n; k++) {
+    out.push({
+      amount_cents: base + (k === 1 ? rest : 0),
+      competence_date: addMonthsDay(primeira, k - 1),
+      installment_n: k,
+      installment_total: n,
+    });
+  }
+  return out;
+}
+
+// Data da compra do recorrente num mês (dia limitado ao último dia do mês).
+function recurrencePurchaseDate(rec, monthISO) {
+  const p = parts(monthISO);
+  return isoFromUTC(p.y, p.m0, Math.min(rec.day_of_month, daysInMonth(p.y, p.m0)));
+}
+// Competência do recorrente comprado no mês informado.
+function recurrenceDateFor(rec, monthISO) {
+  return competenceDate(recurrencePurchaseDate(rec, monthISO), rec.payment);
+}
+
+// Lançamentos de recorrentes que ainda faltam criar para o mês aberto (por competência).
+// ateMes: último mês em que a compra pode acontecer (o mês atual) — meses futuros não geram nada.
+function pendingRecurrences(recs, existingTxs, monthISO, ateMes) {
+  const month = monthStart(monthISO);
+  const out = [];
+  for (const r of recs) {
+    if (r.paused) continue;
+    const purchaseMonth = r.payment === 'credito' ? addMonths(month, -1) : month;
+    if (ateMes && purchaseMonth > monthStart(ateMes)) continue;
+    if (purchaseMonth < monthStart(r.start_month)) continue;
+    if (r.end_month && purchaseMonth > monthStart(r.end_month)) continue;
+    const purchase = recurrencePurchaseDate(r, purchaseMonth);
+    const competence = competenceDate(purchase, r.payment);
+    // Já lançado neste mês (mesmo que alguém tenha editado o dia): não cria de novo.
+    if (existingTxs.some((t) => t.recurrence_id === r.id && monthStart(t.competence_date) === month)) continue;
+    out.push({
+      owner_id: r.owner_id, kind: r.kind, amount_cents: r.amount_cents, description: r.description,
+      tag_id: r.tag_id, payment: r.payment, purchase_date: purchase, competence_date: competence,
+      recurrence_id: r.id,
+    });
+  }
+  return out;
+}
+
+function monthSummary(txs) {
+  const s = { receitas: 0, gastos: 0, investido: 0, doacoes: 0, livre: 0 };
+  for (const t of txs) {
+    if (t.kind === 'receita') s.receitas += t.amount_cents;
+    else if (t.kind === 'gasto') s.gastos += t.amount_cents;
+    else if (t.kind === 'investimento') s.investido += t.amount_cents;
+    else if (t.kind === 'doacao') s.doacoes += t.amount_cents;
+  }
+  s.livre = s.receitas - s.gastos - s.investido - s.doacoes;
+  return s;
+}
+
+function rootTagId(tagId, tags) {
+  if (!tagId) return 'sem-tag';
+  const byId = new Map(tags.map((t) => [t.id, t]));
+  let cur = byId.get(tagId), guard = 0;
+  while (cur && cur.parent_id && byId.has(cur.parent_id) && guard++ < 20) cur = byId.get(cur.parent_id);
+  return cur ? cur.id : tagId;
+}
+
+// Soma dos gastos por tag-mãe (investimento e receita ficam de fora).
+function totalsByRootTag(txs, tags) {
+  const m = new Map();
+  for (const t of txs) {
+    if (t.kind !== 'gasto') continue;
+    const k = rootTagId(t.tag_id, tags);
+    m.set(k, (m.get(k) || 0) + t.amount_cents);
+  }
+  return m;
+}
+// Soma dos gastos por tag exata (para abrir as subtags de uma tag-mãe).
+function totalsByTag(txs) {
+  const m = new Map();
+  for (const t of txs) {
+    if (t.kind !== 'gasto') continue;
+    const k = t.tag_id || 'sem-tag';
+    m.set(k, (m.get(k) || 0) + t.amount_cents);
+  }
+  return m;
+}
+
+function budgetStatus(spentCents, limitCents) {
+  if (!limitCents) return 'ok';
+  if (spentCents > limitCents) return 'estourou';
+  if (spentCents * 100 >= limitCents * 80) return 'atencao';
+  return 'ok';
+}
+
+function monthlySeries(txs, year) {
+  const s = [];
+  for (let m = 1; m <= 12; m++) s.push({ mes: m, receitas: 0, gastos: 0, investido: 0, doacoes: 0 });
+  for (const t of txs) {
+    if (Number(t.competence_date.slice(0, 4)) !== year) continue;
+    const row = s[Number(t.competence_date.slice(5, 7)) - 1];
+    if (t.kind === 'receita') row.receitas += t.amount_cents;
+    else if (t.kind === 'gasto') row.gastos += t.amount_cents;
+    else if (t.kind === 'investimento') row.investido += t.amount_cents;
+    else if (t.kind === 'doacao') row.doacoes += t.amount_cents;
+  }
+  return s;
+}
+
+// Total por ano de uma medida (gastos, receitas, investido, doacoes ou livre),
+// no ano inteiro ou só no mês informado de cada ano.
+function valoresPorAno(txs, anos, mes, medida) {
+  return anos.map((a) => monthSummary(txs.filter((t) => Number(t.competence_date.slice(0, 4)) === a &&
+    (!mes || Number(t.competence_date.slice(5, 7)) === mes)))[medida]);
+}
+function gastosPorAno(txs, anos, mes) { return valoresPorAno(txs, anos, mes, 'gastos'); }
+function acumular(valores) { let s = 0; return valores.map((v) => (s += v)); }
+
+// Escala dos eixos em reais: passos de R$ 300 até R$ 1.800; acima disso o passo cresce
+// (600, 1.500, 3.000, 6.000, 15.000...) para caber em no máximo 6 linhas.
+function escalaEixo(maxReais) {
+  const mult = [1, 2, 5];
+  for (let i = 0; ; i++) {
+    const step = 300 * mult[i % 3] * Math.pow(10, Math.floor(i / 3));
+    if (maxReais <= step * 6) return { step, max: Math.max(1500, Math.ceil(maxReais / step) * step) };
+  }
+}
+
+// "denise.teixeira249@gmail.com" → "Denise"; "Denise Teixeira" → "Denise".
+function primeiroNome(nome) {
+  const base = String(nome || '').split('@')[0];
+  const primeiro = (base.split(/[\s._]+/).find((p) => p.replace(/\d+/g, '')) || '').replace(/\d+/g, '');
+  if (!primeiro) return '';
+  return primeiro.charAt(0).toUpperCase() + primeiro.slice(1).toLowerCase();
+}
+
+const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+function formatBRL(cents) { return BRL.format(cents / 100); }
+function formatDateBR(iso) { return `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`; }
+const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+// Texto digitado em reais ("1.234,56") vira centavos; inválido vira null.
+// Aceita "1.234,56" e também "48.90" (teclados de celular que só têm ponto).
+function parseBRL(text) {
+  let s = String(text || '').trim().replace(/[R$\s]/g, '');
+  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  else if (!/^-?\d+\.\d{1,2}$/.test(s)) s = s.replace(/\./g, '');
+  if (!s || !/^-?\d+(\.\d{0,2})?$/.test(s)) return null;
+  return Math.round(Number(s) * 100);
+}
+/* === FIM 4 === */
+
+/* === 5 TELAS === */
+// ---------- utilidades de tela ----------
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+let avisoTimer = null;
+function avisar(texto, tipo) {
+  const el = $('#aviso');
+  el.textContent = texto;
+  el.className = tipo === 'erro' ? 'erro-aviso' : '';
+  el.hidden = false;
+  clearTimeout(avisoTimer);
+  avisoTimer = setTimeout(() => { el.hidden = true; }, 3500);
+}
+// Executa uma ação e mostra o erro em português, sem quebrar a tela.
+async function tentar(fn) {
+  try { return await fn(); } catch (e) { avisar(e.message || String(e), 'erro'); return undefined; }
+}
+
+function abrirModal(html, aoMontar) {
+  $('#modal').innerHTML = html;
+  $('#modal-fundo').hidden = false;
+  if (aoMontar) aoMontar($('#modal'));
+  const foco = $('#modal [autofocus]') || $('#modal input');
+  if (foco) foco.focus();
+}
+function fecharModal() { $('#modal-fundo').hidden = true; $('#modal').innerHTML = ''; }
+
+// ---------- estado ----------
+const state = {
+  user: null,
+  tela: 'mes',
+  ver: 'eu',            // 'eu' | 'ela' | 'juntos' — de quem são os dados exibidos
+  year: 2026, month: 1, // mês aberto (1–12)
+  tags: [], people: [],
+};
+function hojeMes() { const t = todayISO(); state.year = Number(t.slice(0, 4)); state.month = Number(t.slice(5, 7)); }
+function mesISO(y = state.year, m = state.month) { return `${y}-${String(m).padStart(2, '0')}-01`; }
+function nomePessoa(id) { const p = state.people.find((x) => x.id === id); return p ? (primeiroNome(p.name) || p.name) : 'Outra pessoa'; }
+function outraPessoa() { return state.people.find((p) => p.id !== state.user.id) || null; }
+function rotuloOutra() { const o = outraPessoa(); return o ? nomePessoa(o.id) : 'Ela'; }
+// Filtra linhas de acordo com o seletor Eu / Ela / Juntos.
+function filtrarDono(rows) {
+  if (state.ver === 'juntos') return rows;
+  if (state.ver === 'eu') return rows.filter((r) => r.owner_id === state.user.id);
+  return rows.filter((r) => r.owner_id !== state.user.id);
+}
+function seletorDono() {
+  return `<div class="chips" role="group" aria-label="De quem">
+    ${[['eu', 'Eu'], ['ela', esc(rotuloOutra())], ['juntos', 'Juntos']].map(([k, t]) =>
+      `<button class="chip ${state.ver === k ? 'ativo' : ''}" data-ver="${k}">${t}</button>`).join('')}
+  </div>`;
+}
+function ligarSeletorDono(root) {
+  $$('[data-ver]', root).forEach((b) => b.addEventListener('click', () => { state.ver = b.dataset.ver; router.go(state.tela); }));
+}
+async function carregarBase() {
+  const [tags, people] = await Promise.all([store.list('tags'), store.list('profiles')]);
+  state.tags = tags.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  state.people = people;
+}
+function tagPorId(id) { return state.tags.find((t) => t.id === id) || null; }
+function tagNome(id) {
+  const t = tagPorId(id);
+  if (!t) return 'Sem tag';
+  const mae = t.parent_id ? tagPorId(t.parent_id) : null;
+  return mae ? `${mae.name} › ${t.name}` : t.name;
+}
+function tagVisual(id) {
+  const t = tagPorId(id);
+  return t ? { cor: t.color, icone: t.icon } : { cor: '#A68A73', icone: 'tag' };
+}
+
+// ---------- telas ----------
+const TELAS = {};
+const TITULOS = { mes: 'Mês', dashboards: 'Dashboards', ano: 'Ano', metas: 'Metas', recorrentes: 'Recorrentes', tags: 'Tags', subtags: 'Subtags', config: 'Configurações' };
+
+const router = {
+  async go(tela) {
+    state.tela = tela;
+    $('#menu').hidden = true;
+    $('#menu-botao').setAttribute('aria-expanded', 'false');
+    $$('#menu [data-tela]').forEach((b) => b.classList.toggle('ativo', b.dataset.tela === tela));
+    $$('main > .tela').forEach((s) => { s.hidden = s.id !== 'tela-' + tela; });
+    $('#cabecalho-titulo').textContent = TITULOS[tela] || 'Controle de Finanças Pessoais';
+    // Na visão da outra pessoa só se consulta: nada de lançar no nome dela.
+    $('#novo-lancamento').hidden = tela !== 'mes' || state.ver === 'ela';
+    const el = $('#tela-' + tela);
+    const vez = (this.vez = (this.vez || 0) + 1);
+    document.body.dataset.carregando = '1';
+    await tentar(async () => { await carregarBase(); await TELAS[tela](el); });
+    if (vez === this.vez) delete document.body.dataset.carregando;
+  },
+};
+
+const PAGAMENTOS = { pix: 'Pix', debito: 'Débito', credito: 'Crédito', dinheiro: 'Dinheiro' };
+const TIPOS = { gasto: 'Gasto', receita: 'Receita', investimento: 'Investimento', doacao: 'Doação' };
+// Gasto e doação têm forma de pagamento (e seguem a regra do crédito).
+const COM_PAGAMENTO = (tipo) => tipo === 'gasto' || tipo === 'doacao';
+function novoId() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16);
+  });
+}
+function mudarMes(delta) {
+  const d = addMonths(mesISO(), delta);
+  state.year = Number(d.slice(0, 4)); state.month = Number(d.slice(5, 7));
+}
+function opcoesTag(selecionada, maisUsadas = []) {
+  const ativas = state.tags.filter((t) => !t.archived || t.id === selecionada);
+  const maes = ativas.filter((t) => !t.parent_id || !tagPorId(t.parent_id));
+  const linhas = [];
+  for (const m of maes) {
+    linhas.push(m);
+    for (const f of ativas.filter((t) => t.parent_id === m.id)) linhas.push(f);
+  }
+  const opt = (t) => `<option value="${t.id}" ${t.id === selecionada ? 'selected' : ''}>${esc(tagNome(t.id))}</option>`;
+  const top = maisUsadas.map(tagPorId).filter((t) => t && !t.archived);
+  return `<option value="">Sem tag</option>` +
+    (top.length ? `<optgroup label="Mais usadas">${top.map((t) => `<option value="${t.id}">${esc(tagNome(t.id))}</option>`).join('')}</optgroup>` : '') +
+    `<optgroup label="Todas">${linhas.map(opt).join('')}</optgroup>`;
+}
+
+// Cria, ao abrir o mês, os lançamentos dos meus recorrentes que ainda faltam.
+async function gerarRecorrentes(meusDoMes) {
+  const recs = await store.list('recurrences', { owner_id: state.user.id });
+  const novos = pendingRecurrences(recs, meusDoMes, mesISO(), monthStart(todayISO()));
+  for (const n of novos) {
+    try { meusDoMes.push(...await store.insert('transactions', n)); }
+    catch (e) { if (!/duplicate/i.test(e.message)) throw e; } // já criado em outro aparelho
+  }
+}
+
+let mesDados = { txs: [], todos: [] };
+
+TELAS.mes = async function (el) {
+  const ini = mesISO(), fim = monthEnd(ini);
+  const todos = await store.list('transactions', { competence_from: ini, competence_to: fim });
+  const meus = todos.filter((t) => t.owner_id === state.user.id);
+  const antes = meus.length;
+  await gerarRecorrentes(meus);
+  if (meus.length !== antes) todos.push(...meus.slice(antes));
+  const budgets = await store.list('budgets');
+  const txs = filtrarDono(todos);
+  mesDados = { txs, todos };
+  const r = monthSummary(txs);
+
+  // Orçamentos por tag-mãe (no "Juntos", soma os limites dos dois).
+  const limites = new Map();
+  for (const b of filtrarDono(budgets)) {
+    const k = rootTagId(b.tag_id, state.tags);
+    limites.set(k, (limites.get(k) || 0) + b.monthly_cents);
+  }
+  const gastosTag = totalsByRootTag(txs, state.tags);
+  const orc = [...limites.entries()].map(([tag, lim]) => {
+    const gasto = gastosTag.get(tag) || 0;
+    const st = budgetStatus(gasto, lim);
+    const pct = Math.min(100, Math.round(lim ? (gasto / lim) * 100 : 0));
+    return `<div class="orcamento" data-tag="${tag}">
+      <div class="linha-topo"><span>${esc(tagNome(tag))}</span><span class="${st === 'estourou' ? 'negativo' : ''}">${formatBRL(gasto)} de ${formatBRL(lim)}</span></div>
+      <div class="barra ${st}"><div style="width:${pct}%"></div></div></div>`;
+  }).join('');
+
+  const tagsUsadas = [...new Set(txs.map((t) => t.tag_id).filter(Boolean))];
+  el.innerHTML = `
+    <div class="nav-mes">
+      <button class="btn-icone" id="mes-anterior" aria-label="Mês anterior"><i class="ti ti-chevron-left"></i></button>
+      <h1 id="mes-titulo">${MESES[state.month - 1]} ${state.year}</h1>
+      <button class="btn-icone" id="mes-seguinte" aria-label="Próximo mês"><i class="ti ti-chevron-right"></i></button>
+    </div>
+    ${seletorDono()}
+    <div class="resumo">
+      <div class="cartao"><div class="rotulo">Entrou</div><div class="valor positivo" id="resumo-entrou">${formatBRL(r.receitas)}</div></div>
+      <div class="cartao"><div class="rotulo">Saiu</div><div class="valor" id="resumo-saiu">${formatBRL(r.gastos)}</div></div>
+      <div class="cartao"><div class="rotulo">Investido</div><div class="valor" id="resumo-investido">${formatBRL(r.investido)}</div></div>
+      <div class="cartao"><div class="rotulo">Doações</div><div class="valor" id="resumo-doacoes">${formatBRL(r.doacoes)}</div></div>
+      <div class="cartao livre"><div class="rotulo">Livre</div><div class="valor ${r.livre < 0 ? 'negativo' : ''}" id="resumo-livre">${formatBRL(r.livre)}</div></div>
+    </div>
+    <div class="colunas">
+      <div class="cartao" id="orcamentos"><h2>Orçamento</h2>
+        ${orc || '<p class="suave">Nenhum limite definido. Defina limites por tag em Tags.</p>'}</div>
+      <div style="display:grid; gap:10px">
+        <div class="filtros">
+          <input id="busca-mes" type="search" placeholder="Buscar descrição" aria-label="Buscar">
+          <div class="linha">
+            <select id="filtro-tag" aria-label="Filtrar por tag"><option value="">Todas as tags</option>
+              ${tagsUsadas.map((id) => `<option value="${id}">${esc(tagNome(id))}</option>`).join('')}</select>
+            <select id="filtro-pag" aria-label="Filtrar por pagamento"><option value="">Todo pagamento</option>
+              ${Object.entries(PAGAMENTOS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select>
+          </div>
+        </div>
+        <div class="lista" id="lista-mes"></div>
+      </div>
+    </div>`;
+  $('#mes-anterior', el).addEventListener('click', () => { mudarMes(-1); router.go('mes'); });
+  $('#mes-seguinte', el).addEventListener('click', () => { mudarMes(1); router.go('mes'); });
+  ligarSeletorDono(el);
+  for (const id of ['#busca-mes', '#filtro-tag', '#filtro-pag']) $(id, el).addEventListener('input', desenharListaMes);
+  desenharListaMes();
+};
+
+function desenharListaMes() {
+  const busca = ($('#busca-mes').value || '').trim().toLowerCase();
+  const tag = $('#filtro-tag').value, pag = $('#filtro-pag').value;
+  const itens = mesDados.txs
+    .filter((t) => !busca || (t.description || '').toLowerCase().includes(busca) || tagNome(t.tag_id).toLowerCase().includes(busca))
+    .filter((t) => !tag || t.tag_id === tag)
+    .filter((t) => !pag || t.payment === pag)
+    .sort((a, b) => b.competence_date.localeCompare(a.competence_date) || String(b.created_at || '').localeCompare(String(a.created_at || '')));
+  const lista = $('#lista-mes');
+  if (!itens.length) {
+    lista.innerHTML = mesDados.txs.length
+      ? '<div class="vazio">Nada encontrado com esses filtros.</div>'
+      : '<div class="vazio"><i class="ti ti-wallet"></i><br>Nenhum lançamento neste mês.<br>Toque em “Novo lançamento” para começar.</div>';
+    return;
+  }
+  lista.innerHTML = itens.map(itemHTML).join('');
+  $$('.item .editar', lista).forEach((b) => b.addEventListener('click', () => {
+    const tx = mesDados.txs.find((t) => t.id === b.closest('.item').dataset.id); abrirLancamento(tx);
+  }));
+  $$('.item .excluir', lista).forEach((b) => b.addEventListener('click', () => {
+    const tx = mesDados.txs.find((t) => t.id === b.closest('.item').dataset.id); confirmarExclusao(tx);
+  }));
+}
+
+function itemHTML(t) {
+  const meu = t.owner_id === state.user.id;
+  const v = tagVisual(t.tag_id);
+  const icone = t.kind === 'receita' ? 'arrow-down-left' : t.kind === 'investimento' ? 'trending-up'
+    : t.kind === 'doacao' && !t.tag_id ? 'heart-handshake' : v.icone;
+  const cor = t.kind === 'receita' ? 'var(--receita)' : t.kind === 'investimento' ? 'var(--mocha)'
+    : t.kind === 'doacao' && !t.tag_id ? '#9C6644' : v.cor;
+  const det = [formatDateBR(t.competence_date).slice(0, 5)];
+  if (t.kind === 'gasto') det.push(esc(tagNome(t.tag_id)));
+  else if (t.kind === 'doacao') det.push(t.tag_id ? `Doação · ${esc(tagNome(t.tag_id))}` : 'Doação');
+  else det.push(TIPOS[t.kind]);
+  if (t.payment) det.push(PAGAMENTOS[t.payment]);
+  if (t.installment_total > 1) det.push(`parcela ${t.installment_n}/${t.installment_total}`);
+  if (t.payment === 'credito' && t.purchase_date !== t.competence_date) det.push(`compra ${formatDateBR(t.purchase_date).slice(0, 5)}`);
+  if (state.ver !== 'eu') det.push(esc(nomePessoa(t.owner_id)));
+  const sinal = t.kind === 'receita' ? 'positivo' : '';
+  return `<div class="item" data-id="${t.id}">
+    <div class="icone-tag" style="background:${esc(cor)}"><i class="ti ti-${esc(icone)}"></i></div>
+    <div class="meio"><div class="desc">${esc(t.description || TIPOS[t.kind])}${t.recurrence_id ? ' <i class="ti ti-repeat suave" title="Recorrente"></i>' : ''}</div>
+      <div class="det">${det.join(' · ')}</div></div>
+    <div class="valor ${sinal}">${formatBRL(t.amount_cents)}</div>
+    ${meu ? `<div class="acoes"><button class="btn-icone editar" aria-label="Editar"><i class="ti ti-pencil"></i></button>
+      <button class="btn-icone excluir" aria-label="Excluir"><i class="ti ti-trash"></i></button></div>` : ''}
+  </div>`;
+}
+
+// ---------- novo lançamento / edição ----------
+function abrirLancamento(tx = null) {
+  const editando = !!tx;
+  const grupo = editando && tx.installment_group && tx.installment_total > 1;
+  const f = {
+    tipo: tx ? tx.kind : 'gasto',
+    pag: tx ? (tx.payment || 'pix') : 'pix',
+  };
+  const hoje = todayISO();
+  const dataPadrao = tx ? tx.purchase_date : (hoje.slice(0, 7) === mesISO().slice(0, 7) ? hoje : mesISO());
+  const valorInicial = tx ? formatBRL(Math.abs(tx.amount_cents)).replace(/[^\d,.-]/g, '') : '';
+  const contagem = new Map();
+  for (const t of mesDados.todos) if (t.owner_id === state.user.id && t.tag_id) contagem.set(t.tag_id, (contagem.get(t.tag_id) || 0) + 1);
+  const maisUsadas = [...contagem.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([id]) => id);
+
+  abrirModal(`
+    <div class="topo"><h2>${editando ? 'Editar lançamento' : 'Novo lançamento'}</h2>
+      <button class="btn-icone" id="lanc-fechar" aria-label="Fechar"><i class="ti ti-x"></i></button></div>
+    <div class="chips" style="margin:8px 0">${Object.entries(TIPOS).map(([k, v]) =>
+      `<button class="chip ${f.tipo === k ? 'ativo' : ''}" data-tipo="${k}">${v}</button>`).join('')}</div>
+    <input class="valor-grande" id="lanc-valor" inputmode="decimal" placeholder="R$ 0,00" value="${esc(valorInicial)}" autofocus aria-label="Valor">
+    <label class="campo"><span>Descrição</span><input id="lanc-desc" value="${esc(tx ? tx.description : '')}" placeholder="Padaria, aluguel, salário..."></label>
+    <label class="campo"><span>Data</span><input id="lanc-data" type="date" value="${dataPadrao}"></label>
+    <label class="campo" id="campo-tag"><span>Tag</span><select id="lanc-tag">${opcoesTag(tx ? tx.tag_id : '', maisUsadas)}</select></label>
+    <div class="campo" id="campo-pag"><span>Pagamento</span><div class="chips">${Object.entries(PAGAMENTOS).map(([k, v]) =>
+      `<button class="chip ${f.pag === k ? 'ativo' : ''}" data-pag="${k}">${v}</button>`).join('')}</div></div>
+    <label class="campo" id="campo-parcelas" ${editando ? 'hidden' : ''}><span>Parcelas</span><select id="lanc-parcelas">
+      ${Array.from({ length: 24 }, (_, i) => `<option value="${i + 1}">${i + 1}x</option>`).join('')}</select></label>
+    <label class="campo" id="campo-fatura"><span>${grupo ? 'Esta parcela cai na fatura em' : 'Cai na fatura do cartão em'}</span>
+      <input id="lanc-fatura" type="date" value="${tx && tx.payment === 'credito' ? tx.competence_date : ''}"></label>
+    ${grupo ? `<label class="campo"><span>Aplicar a</span><select id="lanc-escopo">
+      <option value="so-esta">Só esta parcela (${tx.installment_n}/${tx.installment_total})</option>
+      <option value="todas">Todas as ${tx.installment_total} parcelas</option></select></label>` : ''}
+    <label class="campo" id="campo-estorno" style="display:flex; gap:8px; align-items:center">
+      <input type="checkbox" id="lanc-estorno" style="width:auto" ${tx && tx.amount_cents < 0 ? 'checked' : ''}><span style="margin:0">É um estorno (devolução)</span></label>
+    <div class="aviso-credito" id="lanc-aviso"></div>
+    <div class="erro" id="lanc-erro" role="alert"></div>
+    <div class="rodape-modal"><button class="btn" id="lanc-cancelar">Cancelar</button>
+      <button class="btn btn-principal" id="lanc-salvar">Salvar</button></div>`, (m) => {
+    // A data da fatura segue a regra (dia 10 do mês seguinte) até a pessoa escolher outra.
+    let faturaManual = false;
+    const faturaPadrao = (data) => {
+      const primeira = competenceDate(data, 'credito');
+      return grupo ? addMonthsDay(primeira, tx.installment_n - 1) : primeira;
+    };
+    const atualizar = () => {
+      const gasto = COM_PAGAMENTO(f.tipo);
+      const credito = gasto && f.pag === 'credito';
+      $('#campo-pag', m).hidden = !gasto;
+      $('#campo-estorno', m).hidden = f.tipo !== 'gasto';
+      $('#campo-parcelas', m).hidden = editando || !credito;
+      $('#campo-fatura', m).hidden = !credito;
+      $$('[data-tipo]', m).forEach((b) => b.classList.toggle('ativo', b.dataset.tipo === f.tipo));
+      $$('[data-pag]', m).forEach((b) => b.classList.toggle('ativo', b.dataset.pag === f.pag));
+      const data = $('#lanc-data', m).value;
+      const campoFatura = $('#lanc-fatura', m);
+      if (credito && data && (!faturaManual && (!campoFatura.dataset.inicial || campoFatura.dataset.mexeu))) campoFatura.value = faturaPadrao(data);
+      if (credito && !campoFatura.value && data) campoFatura.value = faturaPadrao(data);
+      const aviso = $('#lanc-aviso', m);
+      if (credito && campoFatura.value) {
+        const n = Number(($('#lanc-parcelas', m) || {}).value || 1);
+        const comp = formatDateBR(campoFatura.value).slice(0, 5);
+        aviso.textContent = editando || n === 1 ? `Entra em ${comp} (fatura do cartão).` : `Entra em ${comp} · ${n} parcelas, uma por mês.`;
+      } else aviso.textContent = '';
+    };
+    // Na edição, o valor salvo vale até a pessoa mudar a data da compra.
+    if ($('#lanc-fatura', m).value) $('#lanc-fatura', m).dataset.inicial = '1';
+    $('#lanc-data', m).addEventListener('input', () => { $('#lanc-fatura', m).dataset.mexeu = '1'; });
+    $('#lanc-fatura', m).addEventListener('input', () => { faturaManual = true; atualizar(); });
+    $$('[data-tipo]', m).forEach((b) => b.addEventListener('click', () => { f.tipo = b.dataset.tipo; atualizar(); }));
+    $$('[data-pag]', m).forEach((b) => b.addEventListener('click', () => { f.pag = b.dataset.pag; atualizar(); }));
+    for (const id of ['#lanc-data', '#lanc-parcelas']) $(id, m).addEventListener('input', atualizar);
+    $('#lanc-fechar', m).addEventListener('click', fecharModal);
+    $('#lanc-cancelar', m).addEventListener('click', fecharModal);
+    $('#lanc-salvar', m).addEventListener('click', () => salvarLancamento(tx, f));
+    $('#lanc-valor', m).addEventListener('keydown', (ev) => { if (ev.key === 'Enter') salvarLancamento(tx, f); });
+    atualizar();
+  });
+}
+
+async function salvarLancamento(tx, f) {
+  const erro = $('#lanc-erro');
+  const valor = parseBRL($('#lanc-valor').value);
+  const data = $('#lanc-data').value;
+  if (!valor || valor <= 0) { erro.textContent = 'Informe um valor maior que zero, como 48,90.'; return; }
+  if (!data) { erro.textContent = 'Informe a data.'; return; }
+  const gasto = COM_PAGAMENTO(f.tipo);
+  const payment = gasto ? f.pag : null;
+  const estorno = f.tipo === 'gasto' && $('#lanc-estorno').checked;
+  const fatura = payment === 'credito' ? $('#lanc-fatura').value : null;
+  if (payment === 'credito' && !fatura) { erro.textContent = 'Informe quando cai na fatura do cartão.'; return; }
+  if (fatura && fatura < data) { erro.textContent = 'A data da fatura não pode ser antes da compra.'; return; }
+  const competencia = fatura || data;
+  const campos = {
+    kind: f.tipo, description: $('#lanc-desc').value.trim(),
+    tag_id: $('#lanc-tag').value || null, payment,
+  };
+  const btn = $('#lanc-salvar');
+  btn.disabled = true;
+  const ok = await tentar(async () => {
+    if (!tx) {
+      const n = gasto && payment === 'credito' && !estorno ? Number($('#lanc-parcelas').value) : 1;
+      if (n > 1) {
+        const group = novoId();
+        await store.insert('transactions', splitInstallments(valor, n, data, fatura).map((p) => ({
+          ...campos, ...p, purchase_date: data, installment_group: group })));
+      } else {
+        await store.insert('transactions', { ...campos, amount_cents: estorno ? -valor : valor,
+          purchase_date: data, competence_date: competencia });
+      }
+    } else if (tx.installment_group && tx.installment_total > 1) {
+      const escopo = $('#lanc-escopo').value;
+      const mudouValor = valor !== Math.abs(tx.amount_cents);
+      if (escopo === 'so-esta') {
+        await store.update('transactions', tx.id, { description: campos.description, tag_id: campos.tag_id,
+          amount_cents: estorno ? -valor : valor, competence_date: competencia });
+      } else {
+        const irmas = (await store.list('transactions', { owner_id: state.user.id }))
+          .filter((t) => t.installment_group === tx.installment_group);
+        const primeira = addMonthsDay(competencia, -(tx.installment_n - 1));
+        for (const t of irmas) {
+          await store.update('transactions', t.id, {
+            description: campos.description, tag_id: campos.tag_id, purchase_date: data,
+            competence_date: addMonthsDay(primeira, t.installment_n - 1),
+            ...(mudouValor ? { amount_cents: valor } : {}),
+          });
+        }
+      }
+    } else {
+      await store.update('transactions', tx.id, { ...campos, amount_cents: estorno ? -valor : valor,
+        purchase_date: data, competence_date: competencia });
+    }
+    return true;
+  });
+  btn.disabled = false;
+  if (ok) { fecharModal(); avisar(tx ? 'Lançamento atualizado' : 'Lançamento salvo'); await router.go('mes'); }
+}
+
+function confirmarExclusao(tx) {
+  const grupo = tx.installment_group && tx.installment_total > 1;
+  const rec = !!tx.recurrence_id;
+  const corpo = grupo
+    ? `<p>“${esc(tx.description)}” é a parcela ${tx.installment_n} de ${tx.installment_total}.</p>
+       <div class="rodape-modal"><button class="btn" id="excluir-so-esta">Só esta parcela</button>
+       <button class="btn btn-principal" id="excluir-todas">Todas as parcelas</button></div>`
+    : rec
+      ? `<p>“${esc(tx.description)}” vem de um recorrente. Se excluir, ele volta na próxima vez que o mês for aberto.
+         Para não cobrar neste mês, use “Pular este mês”. Para parar de vez, pause ou encerre em Recorrentes.</p>
+         <div class="rodape-modal"><button class="btn" id="excluir-cancelar">Cancelar</button>
+         <button class="btn btn-principal" id="excluir-pular">Pular este mês</button></div>`
+      : `<p>Excluir “${esc(tx.description || TIPOS[tx.kind])}” de ${formatBRL(tx.amount_cents)}?</p>
+         <div class="rodape-modal"><button class="btn" id="excluir-cancelar">Cancelar</button>
+         <button class="btn btn-principal" id="excluir-confirmar">Excluir</button></div>`;
+  abrirModal(`<div class="topo"><h2>Excluir lançamento</h2>
+    <button class="btn-icone" id="excluir-fechar" aria-label="Fechar"><i class="ti ti-x"></i></button></div>${corpo}`, (m) => {
+    const fim = async (fn, msg) => { if (await tentar(async () => { await fn(); return true; })) { fecharModal(); avisar(msg); router.go('mes'); } };
+    $('#excluir-fechar', m).addEventListener('click', fecharModal);
+    const c = $('#excluir-cancelar', m); if (c) c.addEventListener('click', fecharModal);
+    const b = (id, fn, msg) => { const el = $(id, m); if (el) el.addEventListener('click', () => fim(fn, msg)); };
+    b('#excluir-confirmar', () => store.remove('transactions', tx.id), 'Lançamento excluído');
+    b('#excluir-so-esta', () => store.remove('transactions', tx.id), 'Parcela excluída');
+    b('#excluir-todas', () => store.removeWhere('transactions', { installment_group: tx.installment_group }), 'Parcelas excluídas');
+    b('#excluir-pular', () => store.update('transactions', tx.id, { amount_cents: 0, description: `${tx.description} (pulado)` }), 'Pulado neste mês');
+  });
+}
+
+// ---------- tags e orçamentos ----------
+const CORES_TAG = [
+  // tons de café e terra
+  '#3B2416', '#6F4E37', '#8C5A3C', '#A0522D', '#C68B59', '#D4A373', '#B5543A', '#9C6644', '#7F5539', '#A68A73', '#E6CCB2', '#5C4033',
+  // vermelhos, laranjas e amarelos
+  '#C0392B', '#E74C3C', '#E57373', '#D35400', '#E67E22', '#F39C12', '#F1C40F', '#F7DC6F', '#B7950B', '#FF8A65',
+  // verdes
+  '#1E8449', '#27AE60', '#52BE80', '#5B7A3A', '#7A8B5A', '#A9DFBF', '#16A085', '#48C9B0', '#0E6655', '#82E0AA',
+  // azuis
+  '#1B4F72', '#2471A3', '#3498DB', '#5DADE2', '#85C1E9', '#2E86C1', '#154360', '#76D7C4',
+  // roxos e rosas
+  '#4A235A', '#6C3483', '#8E44AD', '#A569BD', '#C39BD3', '#D81B60', '#EC407A', '#F48FB1', '#AD1457', '#F8BBD0',
+  // neutros
+  '#212121', '#424242', '#616161', '#9E9E9E', '#BDBDBD', '#607D8B', '#90A4AE', '#795548',
+];
+const GRUPOS_ICONES = [
+  ['Casa', ['home', 'home-2', 'building', 'bed', 'sofa', 'armchair', 'bath', 'lamp', 'bulb', 'plug', 'droplet', 'flame',
+    'wifi', 'router', 'device-tv', 'tool', 'hammer', 'paint', 'key', 'trash', 'recycle', 'plant', 'plant-2', 'bucket']],
+  ['Comida', ['tools-kitchen-2', 'tools-kitchen', 'coffee', 'cup', 'glass-full', 'beer', 'bottle', 'pizza', 'burger', 'apple',
+    'carrot', 'cookie', 'ice-cream', 'egg', 'fish', 'meat', 'salad', 'soup', 'bread', 'cake', 'candy', 'milk', 'lemon', 'cheese']],
+  ['Transporte', ['car', 'gas-station', 'bus', 'train', 'plane', 'bike', 'motorbike', 'scooter', 'truck', 'ship', 'parking',
+    'road', 'map-pin', 'steering-wheel', 'gps', 'route', 'charging-pile', 'helicopter']],
+  ['Saúde e esporte', ['heart-rate-monitor', 'pill', 'vaccine', 'stethoscope', 'first-aid-kit', 'dental', 'eye', 'brain',
+    'medical-cross', 'activity', 'heartbeat', 'wheelchair', 'massage', 'yoga', 'run', 'barbell', 'swimming',
+    'ball-football', 'ball-basketball', 'ball-tennis', 'ball-volleyball', 'bike', 'walk', 'trophy']],
+  ['Lazer', ['movie', 'music', 'device-gamepad-2', 'headphones', 'camera', 'photo', 'palette', 'brush', 'book', 'books', 'ticket',
+    'confetti', 'balloon', 'beach', 'mountain', 'tent', 'christmas-tree', 'gift', 'microphone', 'dice', 'chess', 'puzzle',
+    'device-tv-old', 'cards', 'speakerphone', 'map']],
+  ['Compras', ['shopping-cart', 'shopping-bag', 'basket', 'shirt', 'shoe', 'hanger', 'eyeglass', 'diamond', 'building-store',
+    'package', 'truck-delivery', 'tag', 'tags', 'discount', 'receipt', 'perfume', 'sparkles', 'cut', 'gift-card', 'building-warehouse']],
+  ['Dinheiro', ['cash', 'coin', 'coins', 'pig-money', 'building-bank', 'credit-card', 'wallet', 'receipt-2', 'file-invoice',
+    'report-money', 'chart-line', 'chart-pie', 'trending-up', 'trending-down', 'currency-dollar', 'currency-real', 'percentage',
+    'calculator', 'businessplan', 'cash-banknote', 'moneybag', 'chart-bar']],
+  ['Trabalho e estudo', ['briefcase', 'school', 'certificate', 'pencil', 'notebook', 'device-laptop', 'device-desktop',
+    'device-mobile', 'phone', 'mail', 'printer', 'id-badge', 'clipboard', 'presentation', 'backpack', 'math', 'language', 'code']],
+  ['Pessoas e pets', ['baby-carriage', 'baby-bottle', 'user', 'users', 'heart', 'heart-handshake', 'paw', 'dog', 'cat', 'friends',
+    'man', 'woman', 'mood-smile', 'building-church', 'hand-love-you', 'old', 'horse-toy', 'bone']],
+  ['Outros', ['star', 'flag', 'bell', 'calendar', 'clock', 'cloud', 'sun', 'umbrella', 'flower', 'leaf', 'tree', 'scissors',
+    'shield', 'lock', 'world', 'rocket', 'bolt', 'alert-triangle', 'question-mark', 'dots', 'pin', 'bookmark', 'crown', 'anchor']],
+];
+const ICONES_TAG = [...new Set(GRUPOS_ICONES.flatMap(([, lista]) => lista))];
+
+TELAS.tags = async function (el) {
+  const [tags, budgets] = await Promise.all([store.list('tags'), store.list('budgets', { owner_id: state.user.id })]);
+  state.tags = tags.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  const limite = new Map(budgets.map((b) => [b.tag_id, b.monthly_cents]));
+  const maes = state.tags.filter((t) => !t.parent_id);
+  const html = maes.map((t) => {
+    const nSub = state.tags.filter((x) => x.parent_id === t.id && !x.archived).length;
+    const info = [];
+    if (limite.has(t.id)) info.push(`Meu limite: ${formatBRL(limite.get(t.id))}/mês`);
+    if (nSub) info.push(`${nSub} ${nSub === 1 ? 'subtag' : 'subtags'}`);
+    return `<div class="tag-linha ${t.archived ? 'arquivada' : ''}" data-id="${t.id}">
+      <span class="bolinha" style="background:${esc(t.color)}"><i class="ti ti-${esc(t.icon)}"></i></span>
+      <span style="flex:1"><span class="tag-nome">${esc(t.name)}</span>${t.archived ? ' <span class="suave">(arquivada)</span>' : ''}
+        ${info.length ? `<br><span class="suave">${info.join(' · ')}</span>` : ''}</span>
+      <button class="btn-icone tag-editar" aria-label="Editar ${esc(t.name)}"><i class="ti ti-pencil"></i></button>
+      <button class="btn-icone tag-arquivar" aria-label="${t.archived ? 'Desarquivar' : 'Arquivar'} ${esc(t.name)}">
+        <i class="ti ti-${t.archived ? 'archive-off' : 'archive'}"></i></button>
+    </div>`;
+  }).join('');
+  el.innerHTML = `
+    <div class="barra-titulo"><p class="suave" style="margin:0">Tags são as categorias dos gastos, como Moradia ou Alimentação. A lista é compartilhada entre vocês dois.</p>
+      <button class="btn btn-principal" id="tag-nova"><i class="ti ti-plus"></i>Nova tag</button></div>
+    <div class="lista" id="lista-tags">${html || '<div class="vazio">Crie a primeira tag, como Moradia ou Alimentação.</div>'}</div>`;
+  $('#tag-nova', el).addEventListener('click', () => abrirTag(null, limite));
+  $$('.tag-editar', el).forEach((b) => b.addEventListener('click', () => abrirTag(tagPorId(b.closest('.tag-linha').dataset.id), limite)));
+  ligarArquivar(el, 'tags');
+};
+
+function ligarArquivar(el, tela) {
+  $$('.tag-arquivar', el).forEach((b) => b.addEventListener('click', async () => {
+    const t = tagPorId(b.closest('.tag-linha').dataset.id);
+    if (await tentar(() => store.update('tags', t.id, { archived: !t.archived }))) {
+      avisar(t.archived ? 'De volta à lista' : 'Arquivada'); router.go(tela);
+    }
+  }));
+}
+
+function camposCorIcone(f) {
+  const vistos = new Set();
+  const grupos = GRUPOS_ICONES.map(([nome, lista]) => {
+    const unicos = lista.filter((i) => !vistos.has(i) && vistos.add(i));
+    return `<div class="grupo-icones"><div class="suave" style="margin:8px 0 4px">${nome}</div><div class="icones">${unicos.map((i) =>
+      `<button data-icone="${i}" class="${i === f.icone ? 'ativo' : ''}" aria-label="${i}"><i class="ti ti-${i}"></i></button>`).join('')}</div></div>`;
+  }).join('');
+  return `<div class="campo"><span>Cor</span><div class="paleta">${CORES_TAG.map((c) =>
+      `<button data-cor="${c}" class="${c.toLowerCase() === f.cor.toLowerCase() ? 'ativo' : ''}" style="background:${c}" aria-label="Cor ${c}"></button>`).join('')}</div>
+      <label class="suave" style="display:flex; gap:8px; align-items:center; margin-top:8px">Outra cor:
+        <input type="color" id="cor-livre" value="${/^#[0-9a-f]{6}$/i.test(f.cor) ? f.cor : '#6f4e37'}" style="width:44px; height:30px; padding:0; border:none; background:none"></label></div>
+    <div class="campo"><span>Ícone</span>${grupos}</div>`;
+}
+function ligarCorIcone(m, f) {
+  const atualizar = () => {
+    $$('[data-cor]', m).forEach((b) => b.classList.toggle('ativo', b.dataset.cor.toLowerCase() === f.cor.toLowerCase()));
+    $$('[data-icone]', m).forEach((b) => b.classList.toggle('ativo', b.dataset.icone === f.icone));
+  };
+  $$('[data-cor]', m).forEach((b) => b.addEventListener('click', () => { f.cor = b.dataset.cor; $('#cor-livre', m).value = f.cor.toLowerCase(); atualizar(); }));
+  $('#cor-livre', m).addEventListener('input', (e) => { f.cor = e.target.value; atualizar(); });
+  $$('[data-icone]', m).forEach((b) => b.addEventListener('click', () => { f.icone = b.dataset.icone; atualizar(); }));
+}
+
+function abrirTag(tag, limite) {
+  const f = { cor: tag ? tag.color : '#C68B59', icone: tag ? tag.icon : 'tag' };
+  const lim = tag && limite.has(tag.id) ? formatBRL(limite.get(tag.id)).replace(/[^\d,.]/g, '') : '';
+  abrirModal(`
+    <div class="topo"><h2>${tag ? 'Editar tag' : 'Nova tag'}</h2>
+      <button class="btn-icone" id="tag-fechar" aria-label="Fechar"><i class="ti ti-x"></i></button></div>
+    <label class="campo"><span>Nome</span><input id="tag-nome" value="${esc(tag ? tag.name : '')}" placeholder="Moradia" autofocus></label>
+    ${camposCorIcone(f)}
+    <label class="campo" id="campo-orcamento"><span>Meu limite mensal (opcional)</span>
+      <input id="tag-orcamento" inputmode="decimal" placeholder="R$ 0,00" value="${esc(lim)}"></label>
+    <div class="erro" id="tag-erro" role="alert"></div>
+    <div class="rodape-modal"><button class="btn" id="tag-cancelar">Cancelar</button>
+      <button class="btn btn-principal" id="tag-salvar">Salvar</button></div>`, (m) => {
+    ligarCorIcone(m, f);
+    $('#tag-fechar', m).addEventListener('click', fecharModal);
+    $('#tag-cancelar', m).addEventListener('click', fecharModal);
+    $('#tag-salvar', m).addEventListener('click', () => salvarTag(tag, f, limite));
+  });
+}
+
+// ---------- subtags ----------
+TELAS.subtags = async function (el) {
+  state.tags = (await store.list('tags')).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  const maes = state.tags.filter((t) => !t.parent_id);
+  if (!maes.length) {
+    el.innerHTML = `<div class="vazio cartao">Crie uma tag primeiro em Tags (por exemplo, Alimentação).<br>
+      Depois volte aqui para criar subtags dentro dela (por exemplo, Mercado e Restaurante).</div>`;
+    return;
+  }
+  const grupos = maes.map((m) => {
+    const subs = state.tags.filter((t) => t.parent_id === m.id);
+    if (!subs.length) return '';
+    return `<div class="grupo-subtag" data-tag="${m.id}">
+      <h3><span class="bolinha" style="background:${esc(m.color)}"><i class="ti ti-${esc(m.icon)}"></i></span>${esc(m.name)}${m.archived ? ' <span class="suave">(arquivada)</span>' : ''}</h3>
+      ${subs.map((t) => `<div class="tag-linha ${t.archived ? 'arquivada' : ''}" data-id="${t.id}">
+        <span class="bolinha" style="background:${esc(t.color)}"><i class="ti ti-${esc(t.icon)}"></i></span>
+        <span style="flex:1">${esc(t.name)}${t.archived ? ' <span class="suave">(arquivada)</span>' : ''}</span>
+        <button class="btn-icone tag-editar" aria-label="Editar ${esc(t.name)}"><i class="ti ti-pencil"></i></button>
+        <button class="btn-icone tag-arquivar" aria-label="${t.archived ? 'Desarquivar' : 'Arquivar'} ${esc(t.name)}">
+          <i class="ti ti-${t.archived ? 'archive-off' : 'archive'}"></i></button></div>`).join('')}
+    </div>`;
+  }).join('');
+  el.innerHTML = `
+    <div class="barra-titulo"><p class="suave" style="margin:0">Subtags detalham uma tag: Mercado e Restaurante dentro de Alimentação. Nos gráficos e no orçamento, elas somam na tag.</p>
+      <button class="btn btn-principal" id="subtag-nova"><i class="ti ti-plus"></i>Nova subtag</button></div>
+    <div class="lista" id="lista-subtags">${grupos || '<div class="vazio">Nenhuma subtag ainda.</div>'}</div>`;
+  $('#subtag-nova', el).addEventListener('click', () => abrirSubtag(null));
+  $$('.tag-editar', el).forEach((b) => b.addEventListener('click', () => abrirSubtag(tagPorId(b.closest('.tag-linha').dataset.id))));
+  ligarArquivar(el, 'subtags');
+};
+
+function abrirSubtag(sub) {
+  const f = { cor: sub ? sub.color : '#D4A373', icone: sub ? sub.icon : 'tag' };
+  const maes = state.tags.filter((t) => !t.parent_id && (!t.archived || (sub && t.id === sub.parent_id)));
+  abrirModal(`
+    <div class="topo"><h2>${sub ? 'Editar subtag' : 'Nova subtag'}</h2>
+      <button class="btn-icone" id="subtag-fechar" aria-label="Fechar"><i class="ti ti-x"></i></button></div>
+    <label class="campo"><span>Nome</span><input id="subtag-nome" value="${esc(sub ? sub.name : '')}" placeholder="Mercado" autofocus></label>
+    <label class="campo"><span>Pertence à tag</span><select id="subtag-tag">
+      <option value="">Escolha uma tag</option>
+      ${maes.map((m) => `<option value="${m.id}" ${sub && sub.parent_id === m.id ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}
+    </select></label>
+    ${camposCorIcone(f)}
+    <div class="erro" id="subtag-erro" role="alert"></div>
+    <div class="rodape-modal"><button class="btn" id="subtag-cancelar">Cancelar</button>
+      <button class="btn btn-principal" id="subtag-salvar">Salvar</button></div>`, (m) => {
+    ligarCorIcone(m, f);
+    $('#subtag-fechar', m).addEventListener('click', fecharModal);
+    $('#subtag-cancelar', m).addEventListener('click', fecharModal);
+    $('#subtag-salvar', m).addEventListener('click', async () => {
+      const nome = $('#subtag-nome', m).value.trim(), mae = $('#subtag-tag', m).value;
+      if (!nome) { $('#subtag-erro', m).textContent = 'Dê um nome para a subtag.'; return; }
+      if (!mae) { $('#subtag-erro', m).textContent = 'Escolha a tag a que esta subtag pertence.'; return; }
+      const campos = { name: nome, color: f.cor, icon: f.icone, parent_id: mae };
+      const ok = await tentar(async () => {
+        if (sub) await store.update('tags', sub.id, campos); else await store.insert('tags', campos);
+        return true;
+      });
+      if (ok) { fecharModal(); avisar('Subtag salva'); router.go('subtags'); }
+    });
+  });
+}
+
+async function salvarTag(tag, f, limite) {
+  const nome = $('#tag-nome').value.trim();
+  const textoLim = $('#tag-orcamento').value.trim();
+  const lim = textoLim ? parseBRL(textoLim) : null;
+  if (!nome) { $('#tag-erro').textContent = 'Dê um nome para a tag.'; return; }
+  if (textoLim && (lim === null || lim < 0)) { $('#tag-erro').textContent = 'Limite inválido. Use algo como 1.000,00.'; return; }
+  const ok = await tentar(async () => {
+    const campos = { name: nome, color: f.cor, icon: f.icone };
+    const salva = tag ? await store.update('tags', tag.id, campos) : (await store.insert('tags', { ...campos, parent_id: null }))[0];
+    // Orçamento: só em tag principal; é de cada pessoa.
+    const meus = await store.list('budgets', { owner_id: state.user.id });
+    const atual = meus.find((b) => b.tag_id === salva.id);
+    if (!lim) { if (atual) await store.remove('budgets', atual.id); }
+    else if (atual) await store.update('budgets', atual.id, { monthly_cents: lim });
+    else await store.insert('budgets', { tag_id: salva.id, monthly_cents: lim });
+    return true;
+  });
+  if (ok) { fecharModal(); avisar('Tag salva'); router.go('tags'); }
+}
+
+// ---------- recorrentes ----------
+function mesCurto(iso) { return `${MESES_CURTOS[Number(iso.slice(5, 7)) - 1]}/${iso.slice(0, 4)}`; }
+
+TELAS.recorrentes = async function (el) {
+  const recs = (await store.list('recurrences', { owner_id: state.user.id }))
+    .sort((a, b) => a.day_of_month - b.day_of_month || a.description.localeCompare(b.description, 'pt-BR'));
+  const hojeM = monthStart(todayISO());
+  const linhas = recs.map((r) => {
+    const encerrado = r.end_month && monthStart(r.end_month) < hojeM;
+    const status = r.paused ? 'Pausado' : r.end_month ? `Até ${mesCurto(r.end_month)}` : `Desde ${mesCurto(r.start_month)}`;
+    const det = [`todo dia ${r.day_of_month}`, TIPOS[r.kind]];
+    if (r.payment) det.push(PAGAMENTOS[r.payment] + (r.payment === 'credito' ? ' (conta no dia 10 do mês seguinte)' : ''));
+    if (r.tag_id) det.push(esc(tagNome(r.tag_id)));
+    return `<div class="item rec-linha ${r.paused || encerrado ? 'arquivada' : ''}" data-id="${r.id}" style="${r.paused || encerrado ? 'opacity:.6' : ''}">
+      <div class="icone-tag" style="background:${esc(tagVisual(r.tag_id).cor)}"><i class="ti ti-repeat"></i></div>
+      <div class="meio"><div class="desc">${esc(r.description || TIPOS[r.kind])}</div><div class="det">${det.join(' · ')} · ${status}</div></div>
+      <div class="valor ${r.kind === 'receita' ? 'positivo' : ''}">${formatBRL(r.amount_cents)}</div>
+      <div class="acoes">
+        <button class="btn-icone rec-editar" aria-label="Editar"><i class="ti ti-pencil"></i></button>
+        <button class="btn-icone rec-pausar" aria-label="${r.paused ? 'Retomar' : 'Pausar'}"><i class="ti ti-player-${r.paused ? 'play' : 'pause'}"></i></button>
+        ${r.end_month ? '' : '<button class="btn-icone rec-encerrar" aria-label="Encerrar"><i class="ti ti-player-stop"></i></button>'}
+      </div></div>`;
+  }).join('');
+  el.innerHTML = `
+    <div class="barra-titulo"><p class="suave" style="margin:0">Aluguel, assinaturas, salário: lançados sozinhos todo mês, quando o mês é aberto.</p>
+      <button class="btn btn-principal" id="rec-novo"><i class="ti ti-plus"></i>Novo recorrente</button></div>
+    <div class="lista" id="lista-rec">${linhas || '<div class="vazio">Nenhum recorrente ainda.</div>'}</div>`;
+  const porId = (b) => recs.find((r) => r.id === b.closest('.rec-linha').dataset.id);
+  $('#rec-novo', el).addEventListener('click', () => abrirRecorrente(null));
+  $$('.rec-editar', el).forEach((b) => b.addEventListener('click', () => abrirRecorrente(porId(b))));
+  $$('.rec-pausar', el).forEach((b) => b.addEventListener('click', async () => {
+    const r = porId(b);
+    if (await tentar(() => store.update('recurrences', r.id, { paused: !r.paused }))) { avisar(r.paused ? 'Recorrente retomado' : 'Recorrente pausado'); router.go('recorrentes'); }
+  }));
+  $$('.rec-encerrar', el).forEach((b) => b.addEventListener('click', () => {
+    const r = porId(b);
+    abrirModal(`<div class="topo"><h2>Encerrar recorrente</h2></div>
+      <p>“${esc(r.description)}” será lançado pela última vez em ${mesCurto(todayISO())} e não volta nos próximos meses.</p>
+      <div class="rodape-modal"><button class="btn" id="rec-encerrar-cancelar">Cancelar</button>
+      <button class="btn btn-principal" id="rec-encerrar-confirmar">Encerrar</button></div>`, (m) => {
+      $('#rec-encerrar-cancelar', m).addEventListener('click', fecharModal);
+      $('#rec-encerrar-confirmar', m).addEventListener('click', async () => {
+        if (await tentar(() => store.update('recurrences', r.id, { end_month: monthStart(todayISO()) }))) { fecharModal(); avisar('Recorrente encerrado'); router.go('recorrentes'); }
+      });
+    });
+  }));
+};
+
+function abrirRecorrente(rec) {
+  const f = { tipo: rec ? rec.kind : 'gasto', pag: rec ? (rec.payment || 'pix') : 'pix' };
+  abrirModal(`
+    <div class="topo"><h2>${rec ? 'Editar recorrente' : 'Novo recorrente'}</h2>
+      <button class="btn-icone" id="rec-fechar" aria-label="Fechar"><i class="ti ti-x"></i></button></div>
+    <div class="chips" style="margin:8px 0">${Object.entries(TIPOS).map(([k, v]) =>
+      `<button class="chip ${f.tipo === k ? 'ativo' : ''}" data-tipo="${k}">${v}</button>`).join('')}</div>
+    <input class="valor-grande" id="rec-valor" inputmode="decimal" placeholder="R$ 0,00" aria-label="Valor"
+      value="${rec ? esc(formatBRL(rec.amount_cents).replace(/[^\d,.-]/g, '')) : ''}" autofocus>
+    <label class="campo"><span>Descrição</span><input id="rec-desc" value="${esc(rec ? rec.description : '')}" placeholder="Aluguel, Netflix, Salário..."></label>
+    <label class="campo"><span>Tag</span><select id="rec-tag">${opcoesTag(rec ? rec.tag_id : '')}</select></label>
+    <div class="campo" id="rec-campo-pag"><span>Pagamento</span><div class="chips">${Object.entries(PAGAMENTOS).map(([k, v]) =>
+      `<button class="chip ${f.pag === k ? 'ativo' : ''}" data-pag="${k}">${v}</button>`).join('')}</div></div>
+    <label class="campo"><span>Dia do mês</span><input id="rec-dia" type="number" min="1" max="31" value="${rec ? rec.day_of_month : ''}" placeholder="5"></label>
+    <label class="campo"><span>Começa em</span><input id="rec-inicio" type="month" value="${(rec ? rec.start_month : todayISO()).slice(0, 7)}"></label>
+    <div class="aviso-credito" id="rec-aviso"></div>
+    ${rec ? '<p class="suave">Mudanças valem para os próximos lançamentos; os já criados não mudam.</p>' : ''}
+    <div class="erro" id="rec-erro" role="alert"></div>
+    <div class="rodape-modal"><button class="btn" id="rec-cancelar">Cancelar</button>
+      <button class="btn btn-principal" id="rec-salvar">Salvar</button></div>`, (m) => {
+    const atualizar = () => {
+      $('#rec-campo-pag', m).hidden = !COM_PAGAMENTO(f.tipo);
+      $$('[data-tipo]', m).forEach((b) => b.classList.toggle('ativo', b.dataset.tipo === f.tipo));
+      $$('[data-pag]', m).forEach((b) => b.classList.toggle('ativo', b.dataset.pag === f.pag));
+      $('#rec-aviso', m).textContent = COM_PAGAMENTO(f.tipo) && f.pag === 'credito'
+        ? 'No crédito, cada cobrança conta no dia 10 do mês seguinte.' : '';
+    };
+    $$('[data-tipo]', m).forEach((b) => b.addEventListener('click', () => { f.tipo = b.dataset.tipo; atualizar(); }));
+    $$('[data-pag]', m).forEach((b) => b.addEventListener('click', () => { f.pag = b.dataset.pag; atualizar(); }));
+    $('#rec-fechar', m).addEventListener('click', fecharModal);
+    $('#rec-cancelar', m).addEventListener('click', fecharModal);
+    $('#rec-salvar', m).addEventListener('click', async () => {
+      const valor = parseBRL($('#rec-valor', m).value);
+      const dia = Number($('#rec-dia', m).value);
+      const inicio = $('#rec-inicio', m).value;
+      const erro = $('#rec-erro', m);
+      if (!valor || valor <= 0) { erro.textContent = 'Informe um valor maior que zero.'; return; }
+      if (!Number.isInteger(dia) || dia < 1 || dia > 31) { erro.textContent = 'Informe um dia entre 1 e 31.'; return; }
+      if (!/^\d{4}-\d{2}$/.test(inicio)) { erro.textContent = 'Informe o mês de início.'; return; }
+      const campos = { kind: f.tipo, amount_cents: valor, description: $('#rec-desc', m).value.trim(),
+        tag_id: $('#rec-tag', m).value || null, payment: COM_PAGAMENTO(f.tipo) ? f.pag : null,
+        day_of_month: dia, start_month: inicio + '-01' };
+      const ok = await tentar(async () => {
+        if (rec) await store.update('recurrences', rec.id, campos);
+        else await store.insert('recurrences', { ...campos, paused: false, end_month: null });
+        return true;
+      });
+      if (ok) { fecharModal(); avisar('Recorrente salvo'); router.go('recorrentes'); }
+    });
+    atualizar();
+  });
+}
+
+// ---------- metas ----------
+TELAS.metas = async function (el) {
+  const [goals, deps] = await Promise.all([store.list('goals'), store.list('goal_deposits')]);
+  const metas = filtrarDono(goals).sort((a, b) => String(a.deadline || '9').localeCompare(String(b.deadline || '9')));
+  const guardado = new Map();
+  for (const d of deps) guardado.set(d.goal_id, (guardado.get(d.goal_id) || 0) + d.amount_cents);
+  const cards = metas.map((g) => {
+    const v = guardado.get(g.id) || 0;
+    const pct = Math.round((v / g.target_cents) * 100);
+    const meu = g.owner_id === state.user.id;
+    return `<div class="cartao meta" data-id="${g.id}">
+      <div class="barra-titulo"><h2>${esc(g.name)}</h2>
+        ${meu ? `<span><button class="btn-icone meta-guardar" aria-label="Guardar dinheiro"><i class="ti ti-pig-money"></i></button>
+        <button class="btn-icone meta-excluir" aria-label="Excluir meta"><i class="ti ti-trash"></i></button></span>`
+        : `<span class="suave">${esc(nomePessoa(g.owner_id))}</span>`}</div>
+      <div class="barra" style="margin:10px 0 6px"><div style="width:${Math.min(100, pct)}%; background:var(--espresso)"></div></div>
+      <div class="suave">${formatBRL(v)} de ${formatBRL(g.target_cents)}${g.deadline ? ` · até ${mesCurto(g.deadline)}` : ''} · ${pct}%</div>
+    </div>`;
+  }).join('');
+  el.innerHTML = `
+    <div class="barra-titulo">${seletorDono()}${state.ver === 'ela' ? '' : '<button class="btn btn-principal" id="meta-nova"><i class="ti ti-plus"></i>Nova meta</button>'}</div>
+    <div class="grade" id="lista-metas">${cards || (state.ver === 'ela' ? `<div class="vazio cartao">${esc(rotuloOutra())} ainda não tem metas.</div>`
+      : '<div class="vazio cartao">Nenhuma meta ainda. Que tal uma reserva de emergência?</div>')}</div>`;
+  ligarSeletorDono(el);
+  if ($('#meta-nova', el)) $('#meta-nova', el).addEventListener('click', abrirMeta);
+  const porId = (b) => metas.find((g) => g.id === b.closest('.meta').dataset.id);
+  $$('.meta-guardar', el).forEach((b) => b.addEventListener('click', () => abrirDeposito(porId(b))));
+  $$('.meta-excluir', el).forEach((b) => b.addEventListener('click', () => {
+    const g = porId(b);
+    abrirModal(`<div class="topo"><h2>Excluir meta</h2></div><p>Excluir “${esc(g.name)}” e todo o histórico de valores guardados?</p>
+      <div class="rodape-modal"><button class="btn" id="meta-excluir-cancelar">Cancelar</button>
+      <button class="btn btn-principal" id="meta-excluir-confirmar">Excluir</button></div>`, (m) => {
+      $('#meta-excluir-cancelar', m).addEventListener('click', fecharModal);
+      $('#meta-excluir-confirmar', m).addEventListener('click', async () => {
+        const ok = await tentar(async () => {
+          await store.removeWhere('goal_deposits', { goal_id: g.id });
+          await store.remove('goals', g.id); return true;
+        });
+        if (ok) { fecharModal(); avisar('Meta excluída'); router.go('metas'); }
+      });
+    });
+  }));
+};
+
+function abrirMeta() {
+  abrirModal(`<div class="topo"><h2>Nova meta</h2>
+      <button class="btn-icone" id="meta-fechar" aria-label="Fechar"><i class="ti ti-x"></i></button></div>
+    <label class="campo"><span>Nome</span><input id="meta-nome" placeholder="Viagem, reserva de emergência..." autofocus></label>
+    <label class="campo"><span>Quanto quer juntar</span><input id="meta-alvo" inputmode="decimal" placeholder="R$ 10.000,00"></label>
+    <label class="campo"><span>Até quando (opcional)</span><input id="meta-prazo" type="month"></label>
+    <div class="erro" id="meta-erro" role="alert"></div>
+    <div class="rodape-modal"><button class="btn" id="meta-cancelar">Cancelar</button>
+      <button class="btn btn-principal" id="meta-salvar">Salvar</button></div>`, (m) => {
+    $('#meta-fechar', m).addEventListener('click', fecharModal);
+    $('#meta-cancelar', m).addEventListener('click', fecharModal);
+    $('#meta-salvar', m).addEventListener('click', async () => {
+      const nome = $('#meta-nome', m).value.trim(), alvo = parseBRL($('#meta-alvo', m).value), prazo = $('#meta-prazo', m).value;
+      if (!nome) { $('#meta-erro', m).textContent = 'Dê um nome para a meta.'; return; }
+      if (!alvo || alvo <= 0) { $('#meta-erro', m).textContent = 'Informe o valor da meta.'; return; }
+      if (await tentar(() => store.insert('goals', { name: nome, target_cents: alvo, deadline: prazo ? prazo + '-01' : null }))) {
+        fecharModal(); avisar('Meta criada'); router.go('metas');
+      }
+    });
+  });
+}
+
+function abrirDeposito(g) {
+  abrirModal(`<div class="topo"><h2>Guardar para “${esc(g.name)}”</h2>
+      <button class="btn-icone" id="dep-fechar" aria-label="Fechar"><i class="ti ti-x"></i></button></div>
+    <input class="valor-grande" id="dep-valor" inputmode="decimal" placeholder="R$ 0,00" autofocus aria-label="Valor">
+    <p class="suave">Para retirar, use um valor negativo, como -200.</p>
+    <div class="erro" id="dep-erro" role="alert"></div>
+    <div class="rodape-modal"><button class="btn" id="dep-cancelar">Cancelar</button>
+      <button class="btn btn-principal" id="dep-salvar">Guardar</button></div>`, (m) => {
+    $('#dep-fechar', m).addEventListener('click', fecharModal);
+    $('#dep-cancelar', m).addEventListener('click', fecharModal);
+    $('#dep-salvar', m).addEventListener('click', async () => {
+      const v = parseBRL($('#dep-valor', m).value);
+      if (!v) { $('#dep-erro', m).textContent = 'Informe um valor.'; return; }
+      if (await tentar(() => store.insert('goal_deposits', { goal_id: g.id, amount_cents: v, date: todayISO() }))) {
+        fecharModal(); avisar('Valor registrado'); router.go('metas');
+      }
+    });
+  });
+}
+
+// ---------- dashboards ----------
+// Cada gráfico tem os próprios filtros; eles ficam salvos neste navegador e não mexem na tela Mês.
+const MEDIDAS = { gastos: 'Gastos', receitas: 'Receitas', investido: 'Investido', doacoes: 'Doações', livre: 'Livre (sobra)' };
+const SERIES_EVO = [['receitas', 'Entrou', '#5B7A3A'], ['gastos', 'Saiu', '#C68B59'], ['investido', 'Investido', '#3B2416'], ['doacoes', 'Doado', '#9C6644']];
+
+function filtrosPadrao() {
+  const t = todayISO(), ano = Number(t.slice(0, 4)), mes = Number(t.slice(5, 7));
+  return {
+    tag: { periodo: 'mes', mes, ano, formato: 'barras' },
+    evo: { ano, formato: 'barras', series: ['receitas', 'gastos', 'investido', 'doacoes'] },
+    comp: { medida: 'gastos', modo: 'mes', mes, anos: null, formato: 'barras' },
+    ap: { ano, modo: 'mensal', formato: 'barras' },
+  };
+}
+function carregarFiltros() {
+  const padrao = filtrosPadrao();
+  try {
+    const salvo = JSON.parse(localStorage.getItem('dash-filtros') || 'null');
+    if (salvo) for (const k of Object.keys(padrao)) Object.assign(padrao[k], salvo[k] || {});
+  } catch (e) { /* sem armazenamento: usa o padrão */ }
+  return padrao;
+}
+function salvarFiltros() { try { localStorage.setItem('dash-filtros', JSON.stringify(state.dashF)); } catch (e) { /* ignora */ } }
+state.dash = { tagAberta: null };
+
+function selectHTML(id, opcoes, atual, rotulo) {
+  return `<select id="${id}" class="chip" aria-label="${rotulo}">${opcoes.map(([v, t]) =>
+    `<option value="${v}" ${String(v) === String(atual) ? 'selected' : ''}>${t}</option>`).join('')}</select>`;
+}
+const OPC_MESES = MESES.map((n, i) => [i + 1, n]);
+
+TELAS.dashboards = async function (el) {
+  if (!state.dashF) state.dashF = carregarFiltros();
+  const F = state.dashF;
+  const todos = filtrarDono(await store.list('transactions'));
+  const anoAtual = Number(todayISO().slice(0, 4));
+  const anos = [...new Set(todos.map((t) => Number(t.competence_date.slice(0, 4))).concat([anoAtual]))].sort();
+  const opcAnos = anos.map((a) => [a, a]);
+  const doAno = (a) => todos.filter((t) => Number(t.competence_date.slice(0, 4)) === a);
+
+  // Gasto por tag
+  const doPeriodo = F.tag.periodo === 'ano' ? doAno(F.tag.ano)
+    : doAno(F.tag.ano).filter((t) => Number(t.competence_date.slice(5, 7)) === F.tag.mes);
+  const somas = totalsByRootTag(doPeriodo, state.tags);
+  for (const t of state.tags) if (!t.parent_id && !t.archived && !somas.has(t.id)) somas.set(t.id, 0);
+  const porTag = [...somas.entries()].sort((a, b) => b[1] - a[1] ||
+    (tagPorId(a[0]) || { name: '' }).name.localeCompare((tagPorId(b[0]) || { name: '' }).name, 'pt-BR'));
+  const semTags = !state.tags.some((t) => !t.parent_id);
+  const totalGasto = monthSummary(doPeriodo).gastos;
+  const aberta = state.dash.tagAberta && porTag.some(([k]) => k === state.dash.tagAberta) ? state.dash.tagAberta : null;
+
+  // Comparativo
+  const anosComp = (F.comp.anos ? anos.filter((a) => F.comp.anos.includes(a)) : anos.slice(-6));
+  const mesComp = F.comp.modo === 'mes' ? F.comp.mes : null;
+
+  // Aportes
+  const serieAp = monthlySeries(todos, F.ap.ano).map((m) => m.investido);
+  const aporteAno = serieAp.reduce((a, b) => a + b, 0);
+
+  const formatos = (id, atual, opcoes) => selectHTML(id, opcoes, atual, 'Formato do gráfico');
+  el.innerHTML = `
+    <div class="barra-titulo">${seletorDono()}</div>
+    <div class="colunas">
+      <div class="cartao"><h2>Gasto por tag</h2>
+        <div class="chips filtros-graf">
+          ${selectHTML('f-tag-periodo', [['mes', 'Um mês'], ['ano', 'Ano inteiro']], F.tag.periodo, 'Período')}
+          ${F.tag.periodo === 'mes' ? selectHTML('f-tag-mes', OPC_MESES, F.tag.mes, 'Mês') : ''}
+          ${selectHTML('f-tag-ano', opcAnos, F.tag.ano, 'Ano')}
+          ${formatos('f-tag-formato', F.tag.formato, [['barras', 'Barras'], ['rosca', 'Rosca']])}
+        </div>
+        <p class="suave" style="margin:8px 0">${F.tag.periodo === 'ano' ? `Em ${F.tag.ano}` : `${MESES[F.tag.mes - 1]} ${F.tag.ano}`}:
+          <strong id="dash-total-gasto">${formatBRL(totalGasto)}</strong></p>
+        <div class="grafico" style="height:${F.tag.formato === 'rosca' ? 260 : Math.max(160, porTag.length * 36)}px"><canvas id="graf-tag"></canvas></div>
+        <div class="chips" style="margin-top:10px">${porTag.map(([k, v]) =>
+          `<button class="chip dash-tag ${k === aberta ? 'ativo' : ''}" data-tag="${k}">${esc(k === 'sem-tag' ? 'Sem tag' : tagNome(k))} · ${formatBRL(v)}</button>`).join('')}</div>
+        ${semTags ? '<p class="vazio">Crie tags em Tags para ver aqui para onde vai o dinheiro.</p>'
+          : totalGasto === 0 ? '<p class="suave">Nenhum gasto neste período ainda.</p>'
+          : '<p class="suave">Toque numa tag para ver as subtags.</p>'}
+        ${aberta ? `<h3 style="margin-top:12px">${esc(tagNome(aberta))} por subtag</h3><div class="grafico" style="height:200px"><canvas id="graf-subtag"></canvas></div>` : ''}
+      </div>
+      <div style="display:grid; gap:14px">
+        <div class="cartao"><h2>Mês a mês</h2>
+          <div class="chips filtros-graf">
+            ${selectHTML('f-evo-ano', opcAnos, F.evo.ano, 'Ano')}
+            ${formatos('f-evo-formato', F.evo.formato, [['barras', 'Barras'], ['linhas', 'Linhas']])}
+            ${SERIES_EVO.map(([k, nome]) => `<button class="chip ${F.evo.series.includes(k) ? 'ativo' : ''}" data-serie="${k}">${nome}</button>`).join('')}
+          </div>
+          <div class="grafico"><canvas id="graf-evolucao"></canvas></div></div>
+        <div class="cartao"><h2>Comparativo entre anos</h2>
+          <div class="chips filtros-graf">
+            ${selectHTML('f-comp-medida', Object.entries(MEDIDAS), F.comp.medida, 'O que comparar')}
+            ${selectHTML('f-comp-modo', [['mes', 'Mesmo mês'], ['ano', 'Ano inteiro']], F.comp.modo, 'Como comparar')}
+            ${F.comp.modo === 'mes' ? selectHTML('f-comp-mes', OPC_MESES, F.comp.mes, 'Mês') : ''}
+            ${formatos('f-comp-formato', F.comp.formato, [['barras', 'Barras'], ['linhas', 'Linhas']])}
+          </div>
+          <div class="chips" style="margin-top:6px" aria-label="Anos">${anos.map((a) =>
+            `<button class="chip ${anosComp.includes(a) ? 'ativo' : ''}" data-comp-ano="${a}">${a}</button>`).join('')}</div>
+          <p class="suave" id="titulo-comparativo" style="margin:8px 0">${MEDIDAS[F.comp.medida]} · ${mesComp ? `${MESES[mesComp - 1]} de cada ano` : 'ano inteiro, ano a ano'}</p>
+          <div class="grafico"><canvas id="graf-comparativo"></canvas></div></div>
+        <div class="cartao"><h2>Aportes em investimentos</h2>
+          <div class="chips filtros-graf">
+            ${selectHTML('f-ap-ano', opcAnos, F.ap.ano, 'Ano')}
+            ${selectHTML('f-ap-modo', [['mensal', 'Por mês'], ['acumulado', 'Acumulado no ano']], F.ap.modo, 'Como mostrar')}
+            ${formatos('f-ap-formato', F.ap.formato, [['barras', 'Barras'], ['linhas', 'Linhas']])}
+          </div>
+          <p class="suave" style="margin:8px 0 4px">Total aportado em ${F.ap.ano}</p><div class="destaque" id="aportes-total">${formatBRL(aporteAno)}</div>
+          <div class="grafico" style="height:180px"><canvas id="graf-aportes"></canvas></div></div>
+      </div>
+    </div>`;
+
+  ligarSeletorDono(el);
+  const ligar = (id, grupo, campo, num) => {
+    const c = $('#' + id, el);
+    if (c) c.addEventListener('input', (e) => { F[grupo][campo] = num ? Number(e.target.value) : e.target.value; salvarFiltros(); router.go('dashboards'); });
+  };
+  ligar('f-tag-periodo', 'tag', 'periodo'); ligar('f-tag-mes', 'tag', 'mes', true); ligar('f-tag-ano', 'tag', 'ano', true); ligar('f-tag-formato', 'tag', 'formato');
+  ligar('f-evo-ano', 'evo', 'ano', true); ligar('f-evo-formato', 'evo', 'formato');
+  ligar('f-comp-medida', 'comp', 'medida'); ligar('f-comp-modo', 'comp', 'modo'); ligar('f-comp-mes', 'comp', 'mes', true); ligar('f-comp-formato', 'comp', 'formato');
+  ligar('f-ap-ano', 'ap', 'ano', true); ligar('f-ap-modo', 'ap', 'modo'); ligar('f-ap-formato', 'ap', 'formato');
+  $$('[data-serie]', el).forEach((b) => b.addEventListener('click', () => {
+    const k = b.dataset.serie, lista = F.evo.series;
+    F.evo.series = lista.includes(k) ? lista.filter((x) => x !== k) : SERIES_EVO.map(([s]) => s).filter((s) => s === k || lista.includes(s));
+    salvarFiltros(); router.go('dashboards');
+  }));
+  $$('[data-comp-ano]', el).forEach((b) => b.addEventListener('click', () => {
+    const a = Number(b.dataset.compAno);
+    const atual = anosComp.slice();
+    F.comp.anos = atual.includes(a) ? atual.filter((x) => x !== a) : atual.concat([a]).sort();
+    salvarFiltros(); router.go('dashboards');
+  }));
+  $$('.dash-tag', el).forEach((b) => b.addEventListener('click', () => {
+    state.dash.tagAberta = state.dash.tagAberta === b.dataset.tag ? null : b.dataset.tag; router.go('dashboards');
+  }));
+
+  const nomeTag = (k) => (k === 'sem-tag' ? 'Sem tag' : (tagPorId(k) || { name: 'Tag removida' }).name);
+  const corTag = (k) => tagVisual(k === 'sem-tag' ? null : k).cor;
+  const tipoTag = F.tag.formato === 'rosca' ? 'doughnut' : 'bar';
+  desenharGrafico('graf-tag', tipoTag, porTag.map(([k]) => nomeTag(k)),
+    [{ label: 'Gasto', data: porTag.map(([, v]) => reais(v)), backgroundColor: porTag.map(([k]) => corTag(k)), borderRadius: tipoTag === 'bar' ? 6 : 0 }],
+    { horizontal: tipoTag === 'bar', onClick: (_e, els) => { if (els.length) { state.dash.tagAberta = porTag[els[0].index][0]; router.go('dashboards'); } } });
+  if (aberta) {
+    const daRaiz = doPeriodo.filter((t) => t.kind === 'gasto' && rootTagId(t.tag_id, state.tags) === aberta);
+    const subs = [...totalsByTag(daRaiz).entries()].sort((a, b) => b[1] - a[1]);
+    desenharGrafico('graf-subtag', 'bar', subs.map(([k]) => (k === aberta ? `${nomeTag(k)} (direto)` : nomeTag(k))),
+      [{ label: 'Gasto', data: subs.map(([, v]) => reais(v)), backgroundColor: subs.map(([k]) => corTag(k)), borderRadius: 6 }], { horizontal: true });
+  }
+  const linhaOuBarra = (f) => (f === 'linhas' ? 'line' : 'bar');
+  const estilo = (cor, tipo) => (tipo === 'line'
+    ? { borderColor: cor, backgroundColor: cor, tension: 0.25, pointRadius: 3, borderWidth: 2 }
+    : { backgroundColor: cor, borderRadius: 4 });
+  const serie = monthlySeries(todos, F.evo.ano);
+  const tipoEvo = linhaOuBarra(F.evo.formato);
+  desenharGrafico('graf-evolucao', tipoEvo, MESES_CURTOS, SERIES_EVO.filter(([k]) => F.evo.series.includes(k)).map(([k, nome, cor]) =>
+    ({ label: nome, data: serie.map((m) => reais(m[k])), ...estilo(cor, tipoEvo) })));
+  const tipoComp = linhaOuBarra(F.comp.formato);
+  desenharGrafico('graf-comparativo', tipoComp, anosComp.map(String), [{
+    label: MEDIDAS[F.comp.medida], data: valoresPorAno(todos, anosComp, mesComp, F.comp.medida).map(reais),
+    ...estilo(tipoComp === 'bar' ? anosComp.map((a) => (a === anoAtual ? '#3B2416' : '#C68B59')) : '#3B2416', tipoComp),
+  }]);
+  const tipoAp = linhaOuBarra(F.ap.formato);
+  const valoresAp = F.ap.modo === 'acumulado' ? acumular(serieAp) : serieAp;
+  desenharGrafico('graf-aportes', tipoAp, MESES_CURTOS,
+    [{ label: F.ap.modo === 'acumulado' ? 'Acumulado' : 'Aportado', data: valoresAp.map(reais), ...estilo('#6F4E37', tipoAp) }]);
+};
+
+// ---------- ano ----------
+TELAS.ano = async function (el) {
+  const ano = state.year;
+  const txs = filtrarDono(await store.list('transactions', { competence_from: `${ano}-01-01`, competence_to: `${ano}-12-31` }));
+  const serie = monthlySeries(txs, ano);
+  const total = monthSummary(txs);
+  el.innerHTML = `
+    <div class="nav-mes">
+      <button class="btn-icone" id="ano-anterior" aria-label="Ano anterior"><i class="ti ti-chevron-left"></i></button>
+      <h1 id="ano-titulo">${ano}</h1>
+      <button class="btn-icone" id="ano-seguinte" aria-label="Próximo ano"><i class="ti ti-chevron-right"></i></button>
+    </div>
+    ${seletorDono()}
+    <div class="resumo">
+      <div class="cartao"><div class="rotulo">Entrou no ano</div><div class="valor positivo">${formatBRL(total.receitas)}</div></div>
+      <div class="cartao"><div class="rotulo">Saiu no ano</div><div class="valor">${formatBRL(total.gastos)}</div></div>
+      <div class="cartao"><div class="rotulo">Investido no ano</div><div class="valor">${formatBRL(total.investido)}</div></div>
+      <div class="cartao"><div class="rotulo">Doado no ano</div><div class="valor">${formatBRL(total.doacoes)}</div></div>
+      <div class="cartao livre"><div class="rotulo">Livre no ano</div><div class="valor ${total.livre < 0 ? 'negativo' : ''}">${formatBRL(total.livre)}</div></div>
+    </div>
+    <div class="grade" id="grade-ano">${serie.map((m) => {
+      const livre = m.receitas - m.gastos - m.investido - m.doacoes;
+      return `<button class="cartao mes-ano" data-mes="${m.mes}" style="text-align:left">
+        <h3>${MESES[m.mes - 1]}</h3>
+        <div class="suave">Entrou <span class="positivo">${formatBRL(m.receitas)}</span></div>
+        <div class="suave">Saiu ${formatBRL(m.gastos)}</div>
+        ${m.doacoes ? `<div class="suave">Doado ${formatBRL(m.doacoes)}</div>` : ''}
+        <div><strong class="${livre < 0 ? 'negativo' : ''}">Livre ${formatBRL(livre)}</strong></div></button>`;
+    }).join('')}</div>`;
+  ligarSeletorDono(el);
+  $('#ano-anterior', el).addEventListener('click', () => { state.year -= 1; router.go('ano'); });
+  $('#ano-seguinte', el).addEventListener('click', () => { state.year += 1; router.go('ano'); });
+  $$('.mes-ano', el).forEach((b) => b.addEventListener('click', () => { state.month = Number(b.dataset.mes); router.go('mes'); }));
+};
+
+// ---------- configurações, backup e exportação ----------
+const TABELAS_BACKUP = ['profiles', 'tags', 'recurrences', 'goals', 'transactions', 'goal_deposits', 'budgets'];
+
+function baixarArquivo(nome, conteudo, tipo) {
+  const url = URL.createObjectURL(new Blob([conteudo], { type: tipo }));
+  const a = document.createElement('a');
+  a.href = url; a.download = nome; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function campoCSV(v) {
+  const s = String(v == null ? '' : v);
+  return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+TELAS.config = async function (el) {
+  const eu = state.people.find((p) => p.id === state.user.id) || { name: '' };
+  el.innerHTML = `
+    <div class="cartao"><h2>Seu nome no app</h2>
+      <label class="campo"><span>Nome de exibição</span><input id="config-nome" value="${esc(eu.name)}"></label>
+      <button class="btn" id="config-salvar-nome" style="margin-top:10px">Salvar nome</button>
+      <p class="suave">Entrou como ${esc(state.user.email || '')}.</p></div>
+    <div class="cartao"><h2>Backup e exportação</h2>
+      <p class="suave">O backup em JSON guarda tudo e pode ser importado de volta. Guarde uma cópia de vez em quando (Drive, e-mail ou GitHub).</p>
+      <div class="chips"><button class="btn" id="exportar-json"><i class="ti ti-download"></i>Exportar backup (JSON)</button>
+        <button class="btn" id="exportar-csv"><i class="ti ti-table-export"></i>Exportar lançamentos (CSV)</button></div>
+      <label class="campo"><span>Importar backup (JSON) — só traz de volta o que estiver faltando</span>
+        <input id="importar-json" type="file" accept=".json,application/json"></label>
+      <div id="importar-resultado" class="suave" role="status"></div></div>`;
+
+  $('#config-salvar-nome', el).addEventListener('click', async () => {
+    const nome = $('#config-nome', el).value.trim();
+    if (!nome) { avisar('Informe um nome.', 'erro'); return; }
+    if (await tentar(() => store.update('profiles', state.user.id, { name: nome }))) {
+      $('#cabecalho-usuario').textContent = primeiroNome(nome);
+      avisar('Nome salvo'); router.go('config');
+    }
+  });
+
+  $('#exportar-json', el).addEventListener('click', () => tentar(async () => {
+    const tabelas = {};
+    for (const t of TABELAS_BACKUP) tabelas[t] = await store.list(t);
+    baixarArquivo(`financas-${todayISO()}.json`,
+      JSON.stringify({ app: 'controle-financas-pessoais', versao: 1, exportado_em: new Date().toISOString(), tabelas }, null, 2), 'application/json');
+  }));
+
+  $('#exportar-csv', el).addEventListener('click', () => tentar(async () => {
+    const txs = (await store.list('transactions')).sort((a, b) => a.competence_date.localeCompare(b.competence_date));
+    const linhas = ['data;competencia;pessoa;tipo;valor;descricao;tag;pagamento'];
+    for (const t of txs) {
+      linhas.push([formatDateBR(t.purchase_date), formatDateBR(t.competence_date), nomePessoa(t.owner_id),
+        TIPOS[t.kind], (t.amount_cents / 100).toFixed(2).replace('.', ','), t.description,
+        t.tag_id ? tagNome(t.tag_id) : '', t.payment ? PAGAMENTOS[t.payment] : ''].map(campoCSV).join(';'));
+    }
+    baixarArquivo(`lancamentos-${todayISO()}.csv`, '﻿' + linhas.join('\n') + '\n', 'text/csv;charset=utf-8');
+  }));
+
+  $('#importar-json', el).addEventListener('change', async (ev) => {
+    const arquivo = ev.target.files[0];
+    const saida = $('#importar-resultado', el);
+    if (!arquivo) return;
+    saida.textContent = 'Importando…';
+    try {
+      const dados = JSON.parse(await arquivo.text());
+      if (!dados || dados.app !== 'controle-financas-pessoais' || !dados.tabelas) throw new Error('formato');
+      const r = await importarBackup(dados.tabelas);
+      saida.textContent = `${r.lanc} ${r.lanc === 1 ? 'lançamento importado' : 'lançamentos importados'}, ${r.jaExistiam} já existiam` +
+        (r.outros ? ` (e ${r.outros} outros registros restaurados).` : '.');
+      await carregarBase();
+    } catch (e) {
+      saida.textContent = e.message === 'formato' || e instanceof SyntaxError
+        ? 'Arquivo inválido: use um backup JSON exportado por este app.' : e.message;
+    }
+    ev.target.value = '';
+  });
+};
+
+// Reinsere só o que falta: tags (compartilhadas) e os registros da própria pessoa.
+async function importarBackup(tabelas) {
+  const r = { lanc: 0, jaExistiam: 0, outros: 0 };
+  const ordem = ['tags', 'recurrences', 'goals', 'transactions', 'goal_deposits', 'budgets'];
+  for (const t of ordem) {
+    const vindas = Array.isArray(tabelas[t]) ? tabelas[t] : [];
+    const existentes = new Set((await store.list(t)).map((x) => x.id));
+    let faltam = vindas.filter((x) => !existentes.has(x.id) && (t === 'tags' || x.owner_id === state.user.id));
+    if (t === 'tags') faltam = faltam.sort((a, b) => (a.parent_id ? 1 : 0) - (b.parent_id ? 1 : 0)); // mães antes
+    if (t === 'transactions') r.jaExistiam += vindas.filter((x) => existentes.has(x.id) && x.owner_id === state.user.id).length;
+    for (const linha of faltam) {
+      const copia = { ...linha };
+      if (t === 'tags') delete copia.created_by;
+      delete copia.competence_month; // coluna calculada pelo banco
+      await store.insert(t, copia);
+      if (t === 'transactions') r.lanc++; else r.outros++;
+    }
+  }
+  return r;
+}
+
+// ---------- login e menu ----------
+function mostrarLogin() {
+  $('#app').hidden = true;
+  $('#tela-login').hidden = false;
+  $('#login-erro').textContent = '';
+  $('#login-senha').value = '';
+}
+async function entrouNoApp(user) {
+  state.user = user;
+  $('#tela-login').hidden = true;
+  $('#app').hidden = false;
+  await tentar(carregarBase);
+  const eu = state.people.find((p) => p.id === user.id);
+  $('#cabecalho-usuario').textContent = eu ? primeiroNome(eu.name) : '';
+  hojeMes();
+  await router.go('mes');
+}
+function ligarCasca() {
+  $('#login-form').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const email = $('#login-email').value.trim(), senha = $('#login-senha').value;
+    if (!email || !senha) { $('#login-erro').textContent = 'Preencha e-mail e senha.'; return; }
+    $('#login-entrar').disabled = true;
+    try { await entrouNoApp(await store.signIn(email, senha)); }
+    catch (e) { $('#login-erro').textContent = e.message; }
+    finally { $('#login-entrar').disabled = false; }
+  });
+  $('#menu-botao').addEventListener('click', () => {
+    const menu = $('#menu');
+    menu.hidden = !menu.hidden;
+    $('#menu-botao').setAttribute('aria-expanded', String(!menu.hidden));
+  });
+  $$('#menu [data-tela]').forEach((b) => b.addEventListener('click', () => router.go(b.dataset.tela)));
+  $('#menu-sair').addEventListener('click', async () => { $('#menu').hidden = true; await store.signOut(); state.user = null; mostrarLogin(); });
+  $('#modal-fundo').addEventListener('click', (ev) => { if (ev.target.id === 'modal-fundo') fecharModal(); });
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && !$('#modal-fundo').hidden) fecharModal(); });
+  $('#novo-lancamento').addEventListener('click', () => abrirLancamento());
+}
+/* === FIM 5 === */
+
+/* === 6 GRAFICOS === */
+// Desenho dos gráficos com Chart.js, na paleta do app. Valores recebidos em reais.
+const graficos = {};
+const BRL_INTEIRO = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+function reais(cents) { return Math.round(cents) / 100; }
+
+function desenharGrafico(canvasId, tipo, labels, datasets, opcoes = {}) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || !window.Chart) return;
+  if (graficos[canvasId]) graficos[canvasId].destroy();
+  const horizontal = opcoes.horizontal;
+  const valores = datasets.flatMap((d) => d.data).filter((v) => typeof v === 'number');
+  const esc_ = escalaEixo(Math.max(0, ...valores));
+  const temNegativo = valores.some((v) => v < 0);
+  const eixoValor = {
+    min: temNegativo ? undefined : 0, max: esc_.max, beginAtZero: true,
+    ticks: { color: '#7A5C46', stepSize: esc_.step, callback: (v) => BRL_INTEIRO.format(v) },
+  };
+  graficos[canvasId] = new Chart(canvas, {
+    type: tipo,
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false, indexAxis: horizontal ? 'y' : 'x',
+      plugins: {
+        legend: { display: datasets.length > 1 || tipo === 'doughnut', position: tipo === 'doughnut' ? 'right' : 'top', labels: { color: '#3B2416', boxWidth: 12, font: { family: 'Inter' } } },
+        tooltip: { callbacks: { label: (c) => {
+          const v = typeof c.parsed === 'number' ? c.parsed : c.parsed[horizontal ? 'x' : 'y'];
+          const nome = tipo === 'doughnut' ? c.label : c.dataset.label;
+          return `${nome ? nome + ': ' : ''}${formatBRL(Math.round(v * 100))}`;
+        } } },
+      },
+      scales: tipo === 'doughnut' ? {} : horizontal ? {
+        x: { grid: { color: '#E8D3B9' }, ...eixoValor },
+        y: { grid: { color: 'transparent' }, ticks: { color: '#7A5C46' } },
+      } : {
+        x: { grid: { color: 'transparent' }, ticks: { color: '#7A5C46' } },
+        y: { grid: { color: '#E8D3B9' }, ...eixoValor },
+      },
+      onClick: opcoes.onClick,
+    },
+  });
+}
+/* === FIM 6 === */
+
+/* === 7 INICIALIZACAO === */
+// window.__TEST_STORE__ só existe nos testes automáticos (banco em memória).
+const store = window.__TEST_STORE__ ||
+  createStore(window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY));
+
+(async function iniciar() {
+  ligarCasca();
+  const user = await tentar(() => store.restoreSession());
+  if (user) await entrouNoApp(user); else mostrarLogin();
+  store.onAuthChange((u) => { if (!u && state.user) { state.user = null; mostrarLogin(); } });
+})();
+/* === FIM 7 === */
+</script>
+</body>
+</html>
