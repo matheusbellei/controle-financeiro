@@ -138,6 +138,9 @@ main { max-width: 980px; margin: 0 auto; padding: 14px 16px 110px; }
 .sub-linha .bolinha { width: 22px; height: 22px; }
 .sub-linha .btn-icone { padding: 4px; }
 .bloco-nova-sub { margin-top: 8px; }
+.parc-linha { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.parc-linha > span { flex: 0 0 90px; font-size: 13px; color: var(--texto-suave); }
+.parc-linha input { flex: 1; min-width: 0; text-align: right; background: var(--espuma); border: 1px solid #D9BFA0; border-radius: 10px; padding: 8px 10px; }
 .btn-mini { padding: 4px 10px; font-size: 13px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .orc-linha { padding: 10px 0; border-bottom: 1px solid var(--linha); }
@@ -340,14 +343,15 @@ function addMonthsDay(iso, n) {
 
 // Divide uma compra no crédito em n parcelas; os centavos que sobram vão na 1ª.
 // primeiraFatura: data em que a 1ª parcela cai no cartão (padrão: dia 10 do mês seguinte).
-function splitInstallments(totalCents, n, purchaseISO, primeiraFatura) {
+// valores (opcional): valor de cada parcela em centavos, quando a pessoa escolhe um por um.
+function splitInstallments(totalCents, n, purchaseISO, primeiraFatura, valores) {
   const base = Math.trunc(totalCents / n);
   const rest = totalCents - base * n;
   const primeira = primeiraFatura || competenceDate(purchaseISO, 'credito');
   const out = [];
   for (let k = 1; k <= n; k++) {
     out.push({
-      amount_cents: base + (k === 1 ? rest : 0),
+      amount_cents: valores ? valores[k - 1] : base + (k === 1 ? rest : 0),
       competence_date: addMonthsDay(primeira, k - 1),
       installment_n: k,
       installment_total: n,
@@ -829,6 +833,8 @@ function abrirLancamento(tx = null) {
       ${Array.from({ length: 24 }, (_, i) => `<option value="${i + 1}">${i + 1}x</option>`).join('')}</select></label>
     <label class="campo" id="campo-fatura"><span>${grupo ? 'Esta parcela cai na fatura em' : 'Cai na fatura do cartão em'}</span>
       <input id="lanc-fatura" type="date" value="${tx && tx.payment === 'credito' ? tx.competence_date : ''}"></label>
+    <div class="campo" id="campo-parc-valores" hidden><span>Valor de cada parcela (já vem dividido igual; ajuste o que quiser)</span>
+      <div id="lanc-parcelas-lista"></div><div class="suave" id="lanc-parc-total"></div></div>
     ${grupo ? `<label class="campo"><span>Aplicar a</span><select id="lanc-escopo">
       <option value="so-esta">Só esta parcela (${tx.installment_n}/${tx.installment_total})</option>
       <option value="todas">Todas as ${tx.installment_total} parcelas</option></select></label>` : ''}
@@ -847,6 +853,37 @@ function abrirLancamento(tx = null) {
       const primeira = competenceDate(data, 'credito');
       return grupo ? addMonthsDay(primeira, tx.installment_n - 1) : primeira;
     };
+    // Valor de cada parcela: dividido igual até a pessoa mexer em alguma.
+    let parcManual = false, valoresParc = [];
+    const desenharParcelas = () => {
+      const credito = COM_PAGAMENTO(f.tipo) && f.pag === 'credito' && !$('#lanc-estorno', m).checked;
+      const n = Number($('#lanc-parcelas', m).value || 1);
+      const campo = $('#campo-parc-valores', m);
+      campo.hidden = editando || !credito || n <= 1;
+      if (campo.hidden) return;
+      if (!parcManual || valoresParc.length !== n) {
+        valoresParc = splitInstallments(parseBRL($('#lanc-valor', m).value) || 0, n, $('#lanc-data', m).value || todayISO()).map((x) => x.amount_cents);
+        parcManual = false;
+      }
+      const primeira = $('#lanc-fatura', m).value || competenceDate($('#lanc-data', m).value || todayISO(), 'credito');
+      const lista = $('#lanc-parcelas-lista', m);
+      lista.innerHTML = valoresParc.map((v, i) => `<label class="parc-linha"><span>${i + 1}ª · ${formatDateBR(addMonthsDay(primeira, i)).slice(0, 5)}</span>
+        <input class="parc-valor" data-moeda inputmode="numeric" aria-label="Valor da parcela ${i + 1}" value="${v ? mascaraDigitos(String(v)) : ''}"></label>`).join('');
+      ligarMascaras(lista);
+      const somar = () => {
+        const total = valoresParc.reduce((a, b) => a + (b || 0), 0);
+        $('#lanc-parc-total', m).textContent = `Total: ${formatBRL(total)}`;
+        return total;
+      };
+      $$('.parc-valor', lista).forEach((inp, i) => inp.addEventListener('input', () => {
+        parcManual = true;
+        valoresParc[i] = parseBRL(inp.value) || 0;
+        $('#lanc-valor', m).value = mascaraDigitos(String(somar()));
+      }));
+      somar();
+    };
+    // Usado ao salvar: valores de cada parcela, ou null quando a lista não está na tela.
+    m.lerParcelas = () => ($('#campo-parc-valores', m).hidden ? null : $$('.parc-valor', m).map((x) => parseBRL(x.value)));
     const atualizar = () => {
       const gasto = COM_PAGAMENTO(f.tipo);
       const credito = gasto && f.pag === 'credito';
@@ -867,6 +904,7 @@ function abrirLancamento(tx = null) {
         const comp = formatDateBR(campoFatura.value).slice(0, 5);
         aviso.textContent = editando || n === 1 ? `Entra em ${comp} (fatura do cartão).` : `Entra em ${comp} · ${n} parcelas, uma por mês.`;
       } else aviso.textContent = '';
+      desenharParcelas();
     };
     // Na edição, o valor salvo vale até a pessoa mudar a data da compra.
     if ($('#lanc-fatura', m).value) $('#lanc-fatura', m).dataset.inicial = '1';
@@ -876,6 +914,9 @@ function abrirLancamento(tx = null) {
     $$('[data-tipo]', m).forEach((b) => b.addEventListener('click', () => { f.tipo = b.dataset.tipo; atualizar(); }));
     $$('[data-pag]', m).forEach((b) => b.addEventListener('click', () => { f.pag = b.dataset.pag; atualizar(); }));
     for (const id of ['#lanc-data', '#lanc-parcelas']) $(id, m).addEventListener('input', atualizar);
+    $('#lanc-estorno', m).addEventListener('change', atualizar);
+    // Mudar o total volta a dividir igual.
+    $('#lanc-valor', m).addEventListener('input', () => { parcManual = false; desenharParcelas(); });
     $('#lanc-fechar', m).addEventListener('click', fecharModal);
     $('#lanc-cancelar', m).addEventListener('click', fecharModal);
     $('#lanc-salvar', m).addEventListener('click', () => salvarLancamento(tx, f));
@@ -897,6 +938,10 @@ async function salvarLancamento(tx, f) {
   if (payment === 'credito' && !fatura) { erro.textContent = 'Informe quando cai na fatura do cartão.'; return; }
   if (fatura && fatura < data) { erro.textContent = 'A data da fatura não pode ser antes da compra.'; return; }
   const competencia = fatura || data;
+  const parcelasEscolhidas = !tx && $('#modal').lerParcelas ? $('#modal').lerParcelas() : null;
+  if (parcelasEscolhidas && parcelasEscolhidas.some((v) => !v || v <= 0)) {
+    erro.textContent = 'Informe o valor de todas as parcelas.'; return;
+  }
   const campos = {
     kind: f.tipo, description: $('#lanc-desc').value.trim(),
     tag_id: valorTag(document, 'lanc'), payment,
@@ -912,7 +957,8 @@ async function salvarLancamento(tx, f) {
       const n = gasto && payment === 'credito' && !estorno ? Number($('#lanc-parcelas').value) : 1;
       if (n > 1) {
         const group = novoId();
-        await store.insert('transactions', splitInstallments(valor, n, data, fatura).map((p) => ({
+        const valores = $('#modal').lerParcelas();
+        await store.insert('transactions', splitInstallments(valor, n, data, fatura, valores).map((p) => ({
           ...campos, ...p, purchase_date: data, installment_group: group })));
       } else {
         await store.insert('transactions', { ...campos, amount_cents: estorno ? -valor : valor,
