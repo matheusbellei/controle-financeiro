@@ -126,7 +126,33 @@ main { max-width: 980px; margin: 0 auto; padding: 14px 16px 110px; }
 /* Grades de tags, metas, ano */
 .grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
 .tag-linha { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--linha); }
-.grupo-subtag h3 { padding: 12px 12px 4px; color: var(--mocha); display: flex; gap: 8px; align-items: center; }
+.blocos { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 12px; align-items: start; }
+.bloco { display: block; background: var(--espuma); border-radius: var(--raio); padding: 12px 14px; border: 1px solid transparent; }
+.bloco.arquivada { opacity: .55; }
+.bloco-topo { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.bloco-topo .tag-nome { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.bloco .tag-linha { padding: 8px 0; border-bottom: 1px solid var(--linha); }
+.bloco .tag-linha:last-child { border-bottom: none; }
+.bloco-subs { margin-top: 6px; }
+.sub-linha { gap: 8px; padding: 6px 0 6px 12px !important; }
+.sub-linha .bolinha { width: 22px; height: 22px; }
+.sub-linha .btn-icone { padding: 4px; }
+.bloco-nova-sub { margin-top: 8px; }
+.btn-mini { padding: 4px 10px; font-size: 13px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.orc-linha { padding: 10px 0; border-bottom: 1px solid var(--linha); }
+.orc-linha:last-child { border-bottom: none; }
+.orc-topo { display: flex; align-items: center; gap: 8px; }
+.orc-nome { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.orc-campo { flex: 0 0 120px; }
+.orc-limite { width: 100%; text-align: right; background: var(--creme); border: 1px solid #D9BFA0; border-radius: 8px; padding: 6px 8px; }
+.orc-limite:focus { outline: 2px solid var(--caramelo); }
+.barra-empilhada { display: flex; height: 16px; border-radius: 8px; overflow: hidden; background: var(--latte); margin-top: 8px; }
+.barra-empilhada > div { height: 100%; }
+#orc-encaixe.encaixa { border: 1px solid #B9CFA0; }
+#orc-encaixe.nao-encaixa { border: 1px solid var(--alerta); }
+#orc-encaixe.nao-encaixa p:first-of-type { color: var(--alerta); font-weight: 600; }
+.nota-extra { margin-top: 4px; }
 .tag-linha.arquivada { opacity: .55; }
 .bolinha { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; color: var(--espuma); flex: none; }
 .bolinha .ti { font-size: 15px; vertical-align: 0; }
@@ -174,24 +200,24 @@ main { max-width: 980px; margin: 0 auto; padding: 14px 16px 110px; }
     <span id="cabecalho-usuario" class="suave" style="color: var(--latte)"></span>
     <nav id="menu" hidden>
       <button data-tela="mes"><i class="ti ti-calendar-month"></i>Mês</button>
+      <button data-tela="orcamento"><i class="ti ti-report-money"></i>Orçamento</button>
       <button data-tela="dashboards"><i class="ti ti-chart-bar"></i>Dashboards</button>
       <button data-tela="ano"><i class="ti ti-calendar"></i>Ano</button>
       <button data-tela="metas"><i class="ti ti-target-arrow"></i>Metas</button>
       <button data-tela="recorrentes"><i class="ti ti-repeat"></i>Recorrentes</button>
       <button data-tela="tags"><i class="ti ti-tags"></i>Tags</button>
-      <button data-tela="subtags"><i class="ti ti-subtask"></i>Subtags</button>
       <button data-tela="config"><i class="ti ti-settings"></i>Configurações</button>
       <button id="menu-sair"><i class="ti ti-logout"></i>Sair</button>
     </nav>
   </header>
   <main>
     <section class="tela" id="tela-mes" hidden></section>
+    <section class="tela" id="tela-orcamento" hidden></section>
     <section class="tela" id="tela-dashboards" hidden></section>
     <section class="tela" id="tela-ano" hidden></section>
     <section class="tela" id="tela-metas" hidden></section>
     <section class="tela" id="tela-recorrentes" hidden></section>
     <section class="tela" id="tela-tags" hidden></section>
-    <section class="tela" id="tela-subtags" hidden></section>
     <section class="tela" id="tela-config" hidden></section>
   </main>
   <button id="novo-lancamento" hidden><i class="ti ti-plus"></i>Novo lançamento</button>
@@ -212,7 +238,9 @@ function traduzErro(error) {
   const msg = String((error && error.message) || error || '');
   if (/Invalid login credentials/i.test(msg)) return 'E-mail ou senha incorretos.';
   if (/Email not confirmed/i.test(msg)) return 'Este e-mail ainda não foi confirmado no Supabase.';
+  if (/extraordinario/i.test(msg)) return 'O banco ainda não tem a opção de gasto extraordinário. No Supabase, rode o arquivo migracao-003-extraordinario-excluir-tags.sql no SQL Editor.';
   if (/kind_check/i.test(msg)) return 'O banco ainda não aceita doações. No Supabase, rode o arquivo migracao-002-doacoes.sql no SQL Editor.';
+  if (/permission denied for table tags/i.test(msg)) return 'O banco ainda não permite excluir tags. No Supabase, rode o arquivo migracao-003-extraordinario-excluir-tags.sql no SQL Editor.';
   if (/row-level security|permission denied/i.test(msg)) return 'Você só pode alterar os seus próprios dados.';
   if (/Failed to fetch|NetworkError|network/i.test(msg)) return 'Sem conexão com o banco. Verifique a internet e tente de novo.';
   if (/JWT|session|expired/i.test(msg)) return 'Sua sessão expirou. Entre de novo.';
@@ -451,6 +479,25 @@ function primeiroNome(nome) {
   return primeiro.charAt(0).toUpperCase() + primeiro.slice(1).toLowerCase();
 }
 
+// Separa, por tag-mãe, os gastos comuns (que contam no orçamento) dos extraordinários.
+function orcamentoPorTag(txs, tags) {
+  const gastos = txs.filter((t) => t.kind === 'gasto');
+  return {
+    comuns: totalsByRootTag(gastos.filter((t) => !t.extraordinario), tags),
+    extras: totalsByRootTag(gastos.filter((t) => t.extraordinario), tags),
+  };
+}
+// "4890" → "48,90": os dígitos entram pela direita, como no app do banco.
+function mascaraDigitos(texto) {
+  const s = String(texto || '');
+  const negativo = s.trim().startsWith('-');
+  const digitos = s.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+  if (!digitos) return negativo ? '-' : '';
+  const cents = Number(digitos);
+  const txt = (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return (negativo ? '-' : '') + txt;
+}
+
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 function formatBRL(cents) { return BRL.format(cents / 100); }
 function formatDateBR(iso) { return `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`; }
@@ -489,9 +536,22 @@ async function tentar(fn) {
   try { return await fn(); } catch (e) { avisar(e.message || String(e), 'erro'); return undefined; }
 }
 
+// Campo de dinheiro: digitar "4890" mostra "48,90"; colar "1.500" mantém R$ 1.500,00.
+function ligarMascara(input) {
+  if (input.dataset.mascara) return;
+  input.dataset.mascara = '1';
+  input.addEventListener('input', (e) => {
+    const colado = e.inputType === 'insertFromPaste' || e.inputType === 'insertReplacementText' || (e.data && e.data.length > 1);
+    if (colado) { const c = parseBRL(input.value); input.value = c == null ? '' : mascaraDigitos(String(c)); }
+    else input.value = mascaraDigitos(input.value);
+  });
+}
+function ligarMascaras(root) { $$('input[data-moeda]', root).forEach(ligarMascara); }
+
 function abrirModal(html, aoMontar) {
   $('#modal').innerHTML = html;
   $('#modal-fundo').hidden = false;
+  ligarMascaras($('#modal'));
   if (aoMontar) aoMontar($('#modal'));
   const foco = $('#modal [autofocus]') || $('#modal input');
   if (foco) foco.focus();
@@ -529,7 +589,7 @@ function tagVisual(id) {
 
 // ---------- telas ----------
 const TELAS = {};
-const TITULOS = { mes: 'Mês', dashboards: 'Dashboards', ano: 'Ano', metas: 'Metas', recorrentes: 'Recorrentes', tags: 'Tags', subtags: 'Subtags', config: 'Configurações' };
+const TITULOS = { mes: 'Mês', orcamento: 'Orçamento', dashboards: 'Dashboards', ano: 'Ano', metas: 'Metas', recorrentes: 'Recorrentes', tags: 'Tags', config: 'Configurações' };
 
 const router = {
   async go(tela) {
@@ -624,11 +684,13 @@ TELAS.mes = async function (el) {
     const k = rootTagId(b.tag_id, state.tags);
     limites.set(k, (limites.get(k) || 0) + b.monthly_cents);
   }
-  const gastosTag = totalsByRootTag(txs, state.tags);
+  const { comuns: gastosTag, extras: extrasTag } = orcamentoPorTag(txs, state.tags);
   const receitasTag = totalsByRootTag(txs.filter((t) => t.kind === 'receita').map((t) => ({ ...t, kind: 'gasto' })), state.tags);
   const orc = [...limites.entries()].map(([tag, lim]) => {
     const gasto = gastosTag.get(tag) || 0, entrou = receitasTag.get(tag) || 0;
-    if (entrou > 0 && gasto === 0) {
+    const extraTag = extrasTag.get(tag) || 0;
+    const notaExtra = extraTag ? `<div class="suave nota-extra">+ ${formatBRL(extraTag)} extraordinário (fora do orçamento)</div>` : '';
+    if (entrou > 0 && gasto === 0 && !extraTag) {
       const pct = Math.min(100, Math.round((entrou / lim) * 100));
       return `<div class="orcamento" data-tag="${tag}">
         <div class="linha-topo"><span>${esc(tagNome(tag))}</span><span class="positivo">Entrou ${formatBRL(entrou)} de ${formatBRL(lim)}</span></div>
@@ -638,7 +700,7 @@ TELAS.mes = async function (el) {
     const pct = Math.min(100, Math.round(lim ? (gasto / lim) * 100 : 0));
     return `<div class="orcamento" data-tag="${tag}">
       <div class="linha-topo"><span>${esc(tagNome(tag))}</span><span class="${st === 'estourou' ? 'negativo' : ''}">${formatBRL(gasto)} de ${formatBRL(lim)}</span></div>
-      <div class="barra ${st}"><div style="width:${pct}%"></div></div></div>`;
+      <div class="barra ${st}"><div style="width:${pct}%"></div></div>${notaExtra}</div>`;
   }).join('');
 
   const maesUsadas = [...new Set(txs.map((t) => t.tag_id).filter(Boolean).map((id) => rootTagId(id, state.tags)))];
@@ -657,8 +719,9 @@ TELAS.mes = async function (el) {
       <div class="cartao livre"><div class="rotulo">Livre</div><div class="valor ${r.livre < 0 ? 'negativo' : ''}" id="resumo-livre">${formatBRL(r.livre)}</div></div>
     </div>
     <div class="colunas">
-      <div class="cartao" id="orcamentos"><h2>Orçamento</h2>
-        ${orc || '<p class="suave">Nenhum limite definido. Defina limites por tag em Tags.</p>'}</div>
+      <div class="cartao" id="orcamentos"><div class="barra-titulo"><h2>Orçamento</h2>
+          <button class="btn btn-mini" id="ir-orcamento"><i class="ti ti-adjustments"></i>Planejar</button></div>
+        ${orc || '<p class="suave">Nenhum limite definido. Defina os limites na aba Orçamento.</p>'}</div>
       <div style="display:grid; grid-template-columns:minmax(0, 1fr); gap:10px">
         <div class="filtros">
           <input id="busca-mes" type="search" placeholder="Buscar descrição" aria-label="Buscar">
@@ -673,6 +736,7 @@ TELAS.mes = async function (el) {
         <div class="lista" id="lista-mes"></div>
       </div>
     </div>`;
+  $('#ir-orcamento', el).addEventListener('click', () => router.go('orcamento'));
   $('#mes-anterior', el).addEventListener('click', () => { mudarMes(-1); router.go('mes'); });
   $('#mes-seguinte', el).addEventListener('click', () => { mudarMes(1); router.go('mes'); });
   for (const id of ['#busca-mes', '#filtro-subtag', '#filtro-pag']) $(id, el).addEventListener('input', desenharListaMes);
@@ -724,6 +788,7 @@ function itemHTML(t) {
   if (t.kind === 'gasto') det.push(esc(tagNome(t.tag_id)));
   else det.push(t.tag_id ? `${TIPOS[t.kind]} · ${esc(tagNome(t.tag_id))}` : TIPOS[t.kind]);
   if (t.payment) det.push(PAGAMENTOS[t.payment]);
+  if (t.extraordinario) det.push('<strong>Extraordinário</strong>');
   if (t.installment_total > 1) det.push(`parcela ${t.installment_n}/${t.installment_total}`);
   if (t.payment === 'credito' && t.purchase_date !== t.competence_date) det.push(`compra ${formatDateBR(t.purchase_date).slice(0, 5)}`);
   const sinal = t.kind === 'receita' ? 'positivo' : '';
@@ -754,7 +819,7 @@ function abrirLancamento(tx = null) {
       <button class="btn-icone" id="lanc-fechar" aria-label="Fechar"><i class="ti ti-x"></i></button></div>
     <div class="chips" style="margin:8px 0">${Object.entries(TIPOS).map(([k, v]) =>
       `<button class="chip ${f.tipo === k ? 'ativo' : ''}" data-tipo="${k}">${v}</button>`).join('')}</div>
-    <input class="valor-grande" id="lanc-valor" inputmode="decimal" placeholder="R$ 0,00" value="${esc(valorInicial)}" autofocus aria-label="Valor">
+    <input class="valor-grande" id="lanc-valor" data-moeda inputmode="numeric" placeholder="R$ 0,00" value="${esc(valorInicial)}" autofocus aria-label="Valor">
     <label class="campo"><span>Descrição</span><input id="lanc-desc" value="${esc(tx ? tx.description : '')}" placeholder="Padaria, aluguel, salário..."></label>
     <label class="campo"><span>Data</span><input id="lanc-data" type="date" value="${dataPadrao}"></label>
     ${seletorTagHTML('lanc', tx ? tx.tag_id : '')}
@@ -767,6 +832,9 @@ function abrirLancamento(tx = null) {
     ${grupo ? `<label class="campo"><span>Aplicar a</span><select id="lanc-escopo">
       <option value="so-esta">Só esta parcela (${tx.installment_n}/${tx.installment_total})</option>
       <option value="todas">Todas as ${tx.installment_total} parcelas</option></select></label>` : ''}
+    <label class="campo" id="campo-extra" style="display:flex; gap:8px; align-items:flex-start">
+      <input type="checkbox" id="lanc-extra" style="width:auto; margin-top:3px" ${tx && tx.extraordinario ? 'checked' : ''}>
+      <span style="margin:0">Gasto extraordinário<br><span class="suave">Planejado para ficar fora do orçamento (ex.: cirurgia, viagem). Conta no que saiu, mas não estoura a barra da tag.</span></span></label>
     <label class="campo" id="campo-estorno" style="display:flex; gap:8px; align-items:center">
       <input type="checkbox" id="lanc-estorno" style="width:auto" ${tx && tx.amount_cents < 0 ? 'checked' : ''}><span style="margin:0">É um estorno (devolução)</span></label>
     <div class="aviso-credito" id="lanc-aviso"></div>
@@ -784,6 +852,7 @@ function abrirLancamento(tx = null) {
       const credito = gasto && f.pag === 'credito';
       $('#campo-pag', m).hidden = !gasto;
       $('#campo-estorno', m).hidden = f.tipo !== 'gasto';
+      $('#campo-extra', m).hidden = f.tipo !== 'gasto';
       $('#campo-parcelas', m).hidden = editando || !credito;
       $('#campo-fatura', m).hidden = !credito;
       $$('[data-tipo]', m).forEach((b) => b.classList.toggle('ativo', b.dataset.tipo === f.tipo));
@@ -832,6 +901,10 @@ async function salvarLancamento(tx, f) {
     kind: f.tipo, description: $('#lanc-desc').value.trim(),
     tag_id: valorTag(document, 'lanc'), payment,
   };
+  // Só envia o campo quando há algo a dizer: assim o app funciona mesmo antes da migração 003.
+  const extra = f.tipo === 'gasto' && $('#lanc-extra').checked;
+  if (extra || (tx && tx.extraordinario !== undefined)) campos.extraordinario = extra;
+  const extraCampo = 'extraordinario' in campos ? { extraordinario: campos.extraordinario } : {};
   const btn = $('#lanc-salvar');
   btn.disabled = true;
   const ok = await tentar(async () => {
@@ -849,7 +922,7 @@ async function salvarLancamento(tx, f) {
       const escopo = $('#lanc-escopo').value;
       const mudouValor = valor !== Math.abs(tx.amount_cents);
       if (escopo === 'so-esta') {
-        await store.update('transactions', tx.id, { description: campos.description, tag_id: campos.tag_id,
+        await store.update('transactions', tx.id, { description: campos.description, tag_id: campos.tag_id, ...extraCampo,
           amount_cents: estorno ? -valor : valor, competence_date: competencia });
       } else {
         const irmas = (await store.list('transactions', { owner_id: state.user.id }))
@@ -857,7 +930,7 @@ async function salvarLancamento(tx, f) {
         const primeira = addMonthsDay(competencia, -(tx.installment_n - 1));
         for (const t of irmas) {
           await store.update('transactions', t.id, {
-            description: campos.description, tag_id: campos.tag_id, purchase_date: data,
+            description: campos.description, tag_id: campos.tag_id, purchase_date: data, ...extraCampo,
             competence_date: addMonthsDay(primeira, t.installment_n - 1),
             ...(mudouValor ? { amount_cents: valor } : {}),
           });
@@ -947,33 +1020,69 @@ TELAS.tags = async function (el) {
   const [tags, budgets] = await Promise.all([store.list('tags'), store.list('budgets', { owner_id: state.user.id })]);
   state.tags = tags.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
   const limite = new Map(budgets.map((b) => [b.tag_id, b.monthly_cents]));
-  const maes = state.tags.filter((t) => !t.parent_id);
+  // Ativas primeiro (por nome), arquivadas por último.
+  const maes = state.tags.filter((t) => !t.parent_id).sort((a, b) => (a.archived - b.archived) || a.name.localeCompare(b.name, 'pt-BR'));
+  const acoes = (t) => `
+        <button class="btn-icone tag-editar" aria-label="Editar ${esc(t.name)}"><i class="ti ti-pencil"></i></button>
+        <button class="btn-icone tag-arquivar" aria-label="${t.archived ? 'Desarquivar' : 'Arquivar'} ${esc(t.name)}">
+          <i class="ti ti-${t.archived ? 'archive-off' : 'archive'}"></i></button>
+        <button class="btn-icone tag-excluir" aria-label="Excluir ${esc(t.name)}"><i class="ti ti-trash"></i></button>`;
   const html = maes.map((t) => {
-    const nSub = state.tags.filter((x) => x.parent_id === t.id && !x.archived).length;
-    const info = [];
-    if (limite.has(t.id)) info.push(`Meu limite: ${formatBRL(limite.get(t.id))}/mês`);
-    if (nSub) info.push(`${nSub} ${nSub === 1 ? 'subtag' : 'subtags'}`);
-    return `<div class="tag-linha ${t.archived ? 'arquivada' : ''}" data-id="${t.id}">
-      <span class="bolinha" style="background:${esc(t.color)}"><i class="ti ti-${esc(t.icon)}"></i></span>
-      <span style="flex:1"><span class="tag-nome">${esc(t.name)}</span>${t.archived ? ' <span class="suave">(arquivada)</span>' : ''}
-        ${info.length ? `<br><span class="suave">${info.join(' · ')}</span>` : ''}</span>
-      <button class="btn-icone tag-editar" aria-label="Editar ${esc(t.name)}"><i class="ti ti-pencil"></i></button>
-      <button class="btn-icone tag-arquivar" aria-label="${t.archived ? 'Desarquivar' : 'Arquivar'} ${esc(t.name)}">
-        <i class="ti ti-${t.archived ? 'archive-off' : 'archive'}"></i></button>
+    const subs = state.tags.filter((x) => x.parent_id === t.id)
+      .sort((a, b) => (a.archived - b.archived) || a.name.localeCompare(b.name, 'pt-BR'));
+    return `<div class="bloco bloco-tag ${t.archived ? 'arquivada' : ''}" data-id="${t.id}">
+      <div class="bloco-topo">
+        <span class="bolinha" style="background:${esc(t.color)}"><i class="ti ti-${esc(t.icon)}"></i></span>
+        <span class="tag-nome">${esc(t.name)}</span>${acoes(t)}
+      </div>
+      <div class="suave">${t.archived ? 'Arquivada · ' : ''}${limite.has(t.id) ? `Meu limite: ${formatBRL(limite.get(t.id))}/mês` : 'Sem limite'}</div>
+      <div class="bloco-subs">${subs.map((x) => `<div class="tag-linha sub-linha ${x.archived ? 'arquivada' : ''}" data-id="${x.id}">
+          <span class="bolinha" style="background:${esc(x.color)}"><i class="ti ti-${esc(x.icon)}"></i></span>
+          <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis">${esc(x.name)}${x.archived ? ' <span class="suave">(arquivada)</span>' : ''}</span>${acoes(x)}
+        </div>`).join('')}</div>
+      ${t.archived ? '' : `<button class="btn btn-mini bloco-nova-sub" aria-label="Nova subtag em ${esc(t.name)}"><i class="ti ti-plus"></i>Subtag</button>`}
     </div>`;
   }).join('');
   el.innerHTML = `
-    <div class="barra-titulo"><p class="suave" style="margin:0">Tags são as categorias dos gastos, como Moradia ou Alimentação. A lista é compartilhada entre vocês dois.</p>
+    <div class="barra-titulo"><p class="suave" style="margin:0">Tags são as categorias, como Alimentação. Subtags detalham uma tag (Mercado, Restaurante) e somam nela nos gráficos e no orçamento. A lista é compartilhada entre vocês dois.</p>
       <button class="btn btn-principal" id="tag-nova"><i class="ti ti-plus"></i>Nova tag</button></div>
-    <div class="lista" id="lista-tags">${html || '<div class="vazio">Crie a primeira tag, como Moradia ou Alimentação.</div>'}</div>`;
+    <div class="blocos" id="lista-tags">${html || '<div class="vazio cartao">Crie a primeira tag, como Moradia ou Alimentação.</div>'}</div>`;
+  $$('.bloco-nova-sub', el).forEach((b) => b.addEventListener('click', () => abrirSubtag(null, b.closest('.bloco-tag').dataset.id)));
   $('#tag-nova', el).addEventListener('click', () => abrirTag(null, limite));
-  $$('.tag-editar', el).forEach((b) => b.addEventListener('click', () => abrirTag(tagPorId(b.closest('.tag-linha').dataset.id), limite)));
+  $$('.tag-editar', el).forEach((b) => b.addEventListener('click', () => {
+    const t = tagPorId(b.closest('[data-id]').dataset.id);
+    if (t.parent_id) abrirSubtag(t); else abrirTag(t, limite);
+  }));
   ligarArquivar(el, 'tags');
 };
 
+// Excluir de vez: avisa quantas subtags e lançamentos são afetados (de vocês dois, já que a tag é compartilhada).
+async function confirmarExclusaoTag(tag, tela) {
+  const subs = state.tags.filter((t) => t.parent_id === tag.id);
+  const ids = new Set([tag.id, ...subs.map((t) => t.id)]);
+  const lancs = (await tentar(() => store.list('transactions')) || []).filter((t) => ids.has(t.tag_id)).length;
+  const partes = [];
+  if (subs.length) partes.push(`${subs.length} ${subs.length === 1 ? 'subtag' : 'subtags'} dentro dela também ${subs.length === 1 ? 'será excluída' : 'serão excluídas'}`);
+  partes.push(lancs ? `${lancs} ${lancs === 1 ? 'lançamento fica' : 'lançamentos ficam'} sem tag (de vocês dois)` : 'nenhum lançamento usa essa tag');
+  abrirModal(`<div class="topo"><h2>Excluir “${esc(tag.name)}”?</h2></div>
+    <p>${partes.join('; ')}. O limite de orçamento dela também sai. Isso não pode ser desfeito.</p>
+    <p class="suave">Se quiser só esconder do formulário e manter o histórico, use Arquivar.</p>
+    <div class="rodape-modal"><button class="btn" id="tag-excluir-cancelar">Cancelar</button>
+      <button class="btn btn-principal" id="tag-excluir-confirmar">Excluir</button></div>`, (m) => {
+    $('#tag-excluir-cancelar', m).addEventListener('click', fecharModal);
+    $('#tag-excluir-confirmar', m).addEventListener('click', async () => {
+      if (await tentar(async () => { await store.remove('tags', tag.id); return true; })) {
+        fecharModal(); avisar('Excluída'); router.go(tela);
+      }
+    });
+  });
+}
+
 function ligarArquivar(el, tela) {
+  $$('.tag-excluir', el).forEach((b) => b.addEventListener('click', () =>
+    confirmarExclusaoTag(tagPorId(b.closest('[data-id]').dataset.id), tela)));
   $$('.tag-arquivar', el).forEach((b) => b.addEventListener('click', async () => {
-    const t = tagPorId(b.closest('.tag-linha').dataset.id);
+    const t = tagPorId(b.closest('[data-id]').dataset.id);
     if (await tentar(() => store.update('tags', t.id, { archived: !t.archived }))) {
       avisar(t.archived ? 'De volta à lista' : 'Arquivada'); router.go(tela);
     }
@@ -1011,8 +1120,6 @@ function abrirTag(tag, limite) {
       <button class="btn-icone" id="tag-fechar" aria-label="Fechar"><i class="ti ti-x"></i></button></div>
     <label class="campo"><span>Nome</span><input id="tag-nome" value="${esc(tag ? tag.name : '')}" placeholder="Moradia" autofocus></label>
     ${camposCorIcone(f)}
-    <label class="campo" id="campo-orcamento"><span>Meu limite mensal (opcional)</span>
-      <input id="tag-orcamento" inputmode="decimal" placeholder="R$ 0,00" value="${esc(lim)}"></label>
     <div class="erro" id="tag-erro" role="alert"></div>
     <div class="rodape-modal"><button class="btn" id="tag-cancelar">Cancelar</button>
       <button class="btn btn-principal" id="tag-salvar">Salvar</button></div>`, (m) => {
@@ -1023,38 +1130,8 @@ function abrirTag(tag, limite) {
   });
 }
 
-// ---------- subtags ----------
-TELAS.subtags = async function (el) {
-  state.tags = (await store.list('tags')).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
-  const maes = state.tags.filter((t) => !t.parent_id);
-  if (!maes.length) {
-    el.innerHTML = `<div class="vazio cartao">Crie uma tag primeiro em Tags (por exemplo, Alimentação).<br>
-      Depois volte aqui para criar subtags dentro dela (por exemplo, Mercado e Restaurante).</div>`;
-    return;
-  }
-  const grupos = maes.map((m) => {
-    const subs = state.tags.filter((t) => t.parent_id === m.id);
-    if (!subs.length) return '';
-    return `<div class="grupo-subtag" data-tag="${m.id}">
-      <h3><span class="bolinha" style="background:${esc(m.color)}"><i class="ti ti-${esc(m.icon)}"></i></span>${esc(m.name)}${m.archived ? ' <span class="suave">(arquivada)</span>' : ''}</h3>
-      ${subs.map((t) => `<div class="tag-linha ${t.archived ? 'arquivada' : ''}" data-id="${t.id}">
-        <span class="bolinha" style="background:${esc(t.color)}"><i class="ti ti-${esc(t.icon)}"></i></span>
-        <span style="flex:1">${esc(t.name)}${t.archived ? ' <span class="suave">(arquivada)</span>' : ''}</span>
-        <button class="btn-icone tag-editar" aria-label="Editar ${esc(t.name)}"><i class="ti ti-pencil"></i></button>
-        <button class="btn-icone tag-arquivar" aria-label="${t.archived ? 'Desarquivar' : 'Arquivar'} ${esc(t.name)}">
-          <i class="ti ti-${t.archived ? 'archive-off' : 'archive'}"></i></button></div>`).join('')}
-    </div>`;
-  }).join('');
-  el.innerHTML = `
-    <div class="barra-titulo"><p class="suave" style="margin:0">Subtags detalham uma tag: Mercado e Restaurante dentro de Alimentação. Nos gráficos e no orçamento, elas somam na tag.</p>
-      <button class="btn btn-principal" id="subtag-nova"><i class="ti ti-plus"></i>Nova subtag</button></div>
-    <div class="lista" id="lista-subtags">${grupos || '<div class="vazio">Nenhuma subtag ainda.</div>'}</div>`;
-  $('#subtag-nova', el).addEventListener('click', () => abrirSubtag(null));
-  $$('.tag-editar', el).forEach((b) => b.addEventListener('click', () => abrirSubtag(tagPorId(b.closest('.tag-linha').dataset.id))));
-  ligarArquivar(el, 'subtags');
-};
-
-function abrirSubtag(sub) {
+// ---------- subtags (criadas e editadas dentro dos blocos da aba Tags) ----------
+function abrirSubtag(sub, maePadrao) {
   const f = { cor: sub ? sub.color : '#D4A373', icone: sub ? sub.icon : 'tag' };
   const maes = state.tags.filter((t) => !t.parent_id && (!t.archived || (sub && t.id === sub.parent_id)));
   abrirModal(`
@@ -1063,7 +1140,7 @@ function abrirSubtag(sub) {
     <label class="campo"><span>Nome</span><input id="subtag-nome" value="${esc(sub ? sub.name : '')}" placeholder="Mercado" autofocus></label>
     <label class="campo"><span>Pertence à tag</span><select id="subtag-tag">
       <option value="">Escolha uma tag</option>
-      ${maes.map((m) => `<option value="${m.id}" ${sub && sub.parent_id === m.id ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}
+      ${maes.map((m) => `<option value="${m.id}" ${(sub ? sub.parent_id : maePadrao) === m.id ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}
     </select></label>
     ${camposCorIcone(f)}
     <div class="erro" id="subtag-erro" role="alert"></div>
@@ -1081,26 +1158,17 @@ function abrirSubtag(sub) {
         if (sub) await store.update('tags', sub.id, campos); else await store.insert('tags', campos);
         return true;
       });
-      if (ok) { fecharModal(); avisar('Subtag salva'); router.go('subtags'); }
+      if (ok) { fecharModal(); avisar('Subtag salva'); router.go('tags'); }
     });
   });
 }
 
 async function salvarTag(tag, f, limite) {
   const nome = $('#tag-nome').value.trim();
-  const textoLim = $('#tag-orcamento').value.trim();
-  const lim = textoLim ? parseBRL(textoLim) : null;
   if (!nome) { $('#tag-erro').textContent = 'Dê um nome para a tag.'; return; }
-  if (textoLim && (lim === null || lim < 0)) { $('#tag-erro').textContent = 'Limite inválido. Use algo como 1.000,00.'; return; }
   const ok = await tentar(async () => {
     const campos = { name: nome, color: f.cor, icon: f.icone };
-    const salva = tag ? await store.update('tags', tag.id, campos) : (await store.insert('tags', { ...campos, parent_id: null }))[0];
-    // Orçamento: só em tag principal; é de cada pessoa.
-    const meus = await store.list('budgets', { owner_id: state.user.id });
-    const atual = meus.find((b) => b.tag_id === salva.id);
-    if (!lim) { if (atual) await store.remove('budgets', atual.id); }
-    else if (atual) await store.update('budgets', atual.id, { monthly_cents: lim });
-    else await store.insert('budgets', { tag_id: salva.id, monthly_cents: lim });
+    if (tag) await store.update('tags', tag.id, campos); else await store.insert('tags', { ...campos, parent_id: null });
     return true;
   });
   if (ok) { fecharModal(); avisar('Tag salva'); router.go('tags'); }
@@ -1161,7 +1229,7 @@ function abrirRecorrente(rec) {
       <button class="btn-icone" id="rec-fechar" aria-label="Fechar"><i class="ti ti-x"></i></button></div>
     <div class="chips" style="margin:8px 0">${Object.entries(TIPOS).map(([k, v]) =>
       `<button class="chip ${f.tipo === k ? 'ativo' : ''}" data-tipo="${k}">${v}</button>`).join('')}</div>
-    <input class="valor-grande" id="rec-valor" inputmode="decimal" placeholder="R$ 0,00" aria-label="Valor"
+    <input class="valor-grande" id="rec-valor" data-moeda inputmode="numeric" placeholder="R$ 0,00" aria-label="Valor"
       value="${rec ? esc(formatBRL(rec.amount_cents).replace(/[^\d,.-]/g, '')) : ''}" autofocus>
     <label class="campo"><span>Descrição</span><input id="rec-desc" value="${esc(rec ? rec.description : '')}" placeholder="Aluguel, Netflix, Salário..."></label>
     ${seletorTagHTML('rec', rec ? rec.tag_id : '')}
@@ -1254,7 +1322,7 @@ function abrirMeta() {
   abrirModal(`<div class="topo"><h2>Nova meta</h2>
       <button class="btn-icone" id="meta-fechar" aria-label="Fechar"><i class="ti ti-x"></i></button></div>
     <label class="campo"><span>Nome</span><input id="meta-nome" placeholder="Viagem, reserva de emergência..." autofocus></label>
-    <label class="campo"><span>Quanto quer juntar</span><input id="meta-alvo" inputmode="decimal" placeholder="R$ 10.000,00"></label>
+    <label class="campo"><span>Quanto quer juntar</span><input id="meta-alvo" data-moeda inputmode="numeric" placeholder="R$ 10.000,00"></label>
     <label class="campo"><span>Até quando (opcional)</span><input id="meta-prazo" type="month"></label>
     <div class="erro" id="meta-erro" role="alert"></div>
     <div class="rodape-modal"><button class="btn" id="meta-cancelar">Cancelar</button>
@@ -1275,7 +1343,7 @@ function abrirMeta() {
 function abrirDeposito(g) {
   abrirModal(`<div class="topo"><h2>Guardar para “${esc(g.name)}”</h2>
       <button class="btn-icone" id="dep-fechar" aria-label="Fechar"><i class="ti ti-x"></i></button></div>
-    <input class="valor-grande" id="dep-valor" inputmode="decimal" placeholder="R$ 0,00" autofocus aria-label="Valor">
+    <input class="valor-grande" id="dep-valor" data-moeda inputmode="decimal" placeholder="R$ 0,00" autofocus aria-label="Valor">
     <p class="suave">Para retirar, use um valor negativo, como -200.</p>
     <div class="erro" id="dep-erro" role="alert"></div>
     <div class="rodape-modal"><button class="btn" id="dep-cancelar">Cancelar</button>
@@ -1291,6 +1359,144 @@ function abrirDeposito(g) {
     });
   });
 }
+
+// ---------- orçamento (planejamento do mês) ----------
+// Base: o que já entrou no mês. Os limites das tags de gasto são comparados com essa renda.
+// Tags usadas só com receitas (nos últimos 12 meses) viram "metas de receita".
+TELAS.orcamento = async function (el) {
+  const ini = mesISO(), fim = monthEnd(ini);
+  const [historico, budgets] = await Promise.all([
+    store.list('transactions', { owner_id: state.user.id, competence_from: addMonths(ini, -11), competence_to: fim }),
+    store.list('budgets', { owner_id: state.user.id }),
+  ]);
+  const meus = filtrarDono(historico);
+  const doMes = meus.filter((t) => t.competence_date >= ini && t.competence_date <= fim);
+  const resumo = monthSummary(doMes);
+  const renda = resumo.receitas;
+
+  const usos = new Map();
+  for (const t of meus) {
+    if (!t.tag_id || (t.kind !== 'gasto' && t.kind !== 'receita')) continue;
+    const k = rootTagId(t.tag_id, state.tags), u = usos.get(k) || { r: 0, g: 0 };
+    if (t.kind === 'receita') u.r++; else u.g++;
+    usos.set(k, u);
+  }
+  const ehReceita = (id) => { const u = usos.get(id); return !!u && u.r > 0 && u.g === 0; };
+
+  const limite = new Map();
+  for (const b of filtrarDono(budgets)) limite.set(rootTagId(b.tag_id, state.tags), b);
+  const maes = tagsPrincipais([...limite.keys()]);
+  const despesas = maes.filter((t) => !ehReceita(t.id));
+  const metasReceita = maes.filter((t) => ehReceita(t.id));
+  const { comuns, extras } = orcamentoPorTag(doMes, state.tags);
+  const receitasTag = totalsByRootTag(doMes.filter((t) => t.kind === 'receita').map((t) => ({ ...t, kind: 'gasto' })), state.tags);
+
+  const planejado = despesas.reduce((s, t) => s + (limite.has(t.id) ? limite.get(t.id).monthly_cents : 0), 0);
+  const gastoComum = [...comuns.values()].reduce((a, b) => a + b, 0);
+  const totalExtra = [...extras.values()].reduce((a, b) => a + b, 0);
+  const pctRenda = (v) => (renda > 0 ? `${Math.round((v / renda) * 100)}%` : '—');
+  const valorCampo = (b) => (b ? mascaraDigitos(String(b.monthly_cents)) : '');
+
+  let encaixeClasse, encaixeTexto;
+  if (renda <= 0) {
+    encaixeClasse = 'sem-renda';
+    encaixeTexto = 'Ainda não entrou nada neste mês. O encaixe aparece quando você lançar as receitas.';
+  } else if (planejado <= renda) {
+    encaixeClasse = 'encaixa';
+    encaixeTexto = `Cabe na renda. Sobra planejada ${formatBRL(renda - planejado)} (${pctRenda(renda - planejado)} do que entrou).`;
+  } else {
+    encaixeClasse = 'nao-encaixa';
+    encaixeTexto = `Não cabe: os limites passam ${formatBRL(planejado - renda)} do que entrou.`;
+  }
+  const escalaBarra = Math.max(renda, planejado, 1);
+  const segmentos = despesas.filter((t) => limite.has(t.id)).map((t) =>
+    `<div title="${esc(t.name)}" style="width:${(limite.get(t.id).monthly_cents / escalaBarra) * 100}%; background:${esc(t.color)}"></div>`).join('') +
+    (renda > planejado ? `<div title="Sobra" style="width:${((renda - planejado) / escalaBarra) * 100}%; background:#B9CFA0"></div>` : '');
+
+  const linhaDespesa = (t) => {
+    const b = limite.get(t.id), lim = b ? b.monthly_cents : 0, gasto = comuns.get(t.id) || 0, extra = extras.get(t.id) || 0;
+    const st = budgetStatus(gasto, lim), pct = lim ? Math.min(100, Math.round((gasto / lim) * 100)) : 0;
+    return `<div class="orc-linha" data-tag="${t.id}">
+      <div class="orc-topo">
+        <span class="bolinha" style="background:${esc(t.color)}"><i class="ti ti-${esc(t.icon)}"></i></span>
+        <span class="orc-nome">${esc(t.name)}</span>
+        <label class="orc-campo"><span class="sr-only">Limite de ${esc(t.name)}</span>
+          <input class="orc-limite" data-moeda inputmode="numeric" placeholder="Sem limite" value="${valorCampo(b)}"></label>
+      </div>
+      <div class="suave">${lim ? `${pctRenda(lim)} do que entrou · ` : ''}gasto ${formatBRL(gasto)}${lim ? ` de ${formatBRL(lim)}` : ''}</div>
+      ${lim ? `<div class="barra ${st}"><div style="width:${pct}%"></div></div>` : ''}
+      ${extra ? `<div class="suave nota-extra">+ ${formatBRL(extra)} extraordinário (fora do orçamento)</div>` : ''}
+    </div>`;
+  };
+  const linhaReceita = (t) => {
+    const b = limite.get(t.id), lim = b ? b.monthly_cents : 0, entrou = receitasTag.get(t.id) || 0;
+    return `<div class="orc-linha" data-tag="${t.id}">
+      <div class="orc-topo">
+        <span class="bolinha" style="background:${esc(t.color)}"><i class="ti ti-${esc(t.icon)}"></i></span>
+        <span class="orc-nome">${esc(t.name)}</span>
+        <label class="orc-campo"><span class="sr-only">Meta de ${esc(t.name)}</span>
+          <input class="orc-limite" data-moeda inputmode="numeric" placeholder="Sem meta" value="${valorCampo(b)}"></label>
+      </div>
+      <div class="suave positivo">Entrou ${formatBRL(entrou)}${lim ? ` de ${formatBRL(lim)}` : ''}</div>
+      ${lim ? `<div class="barra receita"><div style="width:${Math.min(100, Math.round((entrou / lim) * 100))}%"></div></div>` : ''}
+    </div>`;
+  };
+
+  el.innerHTML = `
+    <div class="nav-mes">
+      <button class="btn-icone" id="orc-anterior" aria-label="Mês anterior"><i class="ti ti-chevron-left"></i></button>
+      <h1>${MESES[state.month - 1]} ${state.year}</h1>
+      <button class="btn-icone" id="orc-seguinte" aria-label="Próximo mês"><i class="ti ti-chevron-right"></i></button>
+    </div>
+    <div class="resumo">
+      <div class="cartao" id="orc-renda"><div class="rotulo">Entrou no mês</div><div class="valor positivo">${formatBRL(renda)}</div></div>
+      <div class="cartao" id="orc-planejado"><div class="rotulo">Limites planejados</div><div class="valor">${formatBRL(planejado)}</div>
+        <div class="suave">${pctRenda(planejado)} do que entrou</div></div>
+      <div class="cartao" id="orc-gasto"><div class="rotulo">Gasto até agora</div><div class="valor">${formatBRL(gastoComum)}</div>
+        <div class="suave">sem extraordinários</div></div>
+      <div class="cartao" id="orc-real"><div class="rotulo">Sobra real do mês</div>
+        <div class="valor ${resumo.livre < 0 ? 'negativo' : ''}">${formatBRL(resumo.livre)}</div>
+        <div class="suave">entrou − saiu − investido − doado</div></div>
+    </div>
+    <div class="cartao ${encaixeClasse}" id="orc-encaixe">
+      <h2>Os limites cabem no que entrou?</h2>
+      <p style="margin:6px 0">${encaixeTexto}</p>
+      ${renda > 0 && segmentos ? `<div class="barra-empilhada">${segmentos}</div>` : ''}
+      ${totalExtra ? `<p class="suave" style="margin:8px 0 0">Extraordinários do mês: ${formatBRL(totalExtra)} (fora do orçamento, mas contam na sobra real).</p>` : ''}
+    </div>
+    <div class="colunas">
+      <div class="cartao"><h2>Limites por tag</h2>
+        <p class="suave" style="margin:2px 0 8px">Digite o limite e aperte Enter (ou toque fora). Apague para tirar o limite.</p>
+        <div id="orc-tags">${despesas.map(linhaDespesa).join('') || '<p class="suave">Crie tags em Tags para planejar os gastos.</p>'}</div></div>
+      <div class="cartao"><h2>Metas de receita</h2>
+        <p class="suave" style="margin:2px 0 8px">Tags usadas só com receitas, como Renda extra. Não entram na conta dos limites.</p>
+        <div id="orc-receitas">${metasReceita.map(linhaReceita).join('') || '<p class="suave">Nenhuma tag de receita ainda.</p>'}</div></div>
+    </div>`;
+
+  $('#orc-anterior', el).addEventListener('click', () => { mudarMes(-1); router.go('orcamento'); });
+  $('#orc-seguinte', el).addEventListener('click', () => { mudarMes(1); router.go('orcamento'); });
+  ligarMascaras(el);
+  $$('.orc-limite', el).forEach((campo) => {
+    const salvar = async () => {
+      if (campo.dataset.salvando) return;
+      const tagId = campo.closest('.orc-linha').dataset.tag;
+      const atual = limite.get(tagId);
+      const novo = campo.value.trim() ? parseBRL(campo.value) : 0;
+      if (novo === null || novo < 0) { avisar('Limite inválido. Use algo como 1.000,00.', 'erro'); return; }
+      if ((atual ? atual.monthly_cents : 0) === novo) return;
+      campo.dataset.salvando = '1';
+      const ok = await tentar(async () => {
+        if (!novo) await store.remove('budgets', atual.id);
+        else if (atual) await store.update('budgets', atual.id, { monthly_cents: novo });
+        else await store.insert('budgets', { tag_id: tagId, monthly_cents: novo });
+        return true;
+      });
+      if (ok) { avisar(novo ? 'Limite salvo' : 'Limite removido'); router.go('orcamento'); } else delete campo.dataset.salvando;
+    };
+    campo.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); salvar(); } });
+    campo.addEventListener('change', salvar);
+  });
+};
 
 // ---------- dashboards ----------
 // Cada gráfico tem os próprios filtros; eles ficam salvos neste navegador e não mexem na tela Mês.
