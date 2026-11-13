@@ -85,7 +85,7 @@ main { max-width: 980px; margin: 0 auto; padding: 14px 16px 110px; }
 .barra > div { height: 100%; background: var(--caramelo); border-radius: 4px; }
 .barra.atencao > div { background: #D08A3E; }
 .barra.estourou > div { background: var(--alerta); }
-.barra.receita > div { background: var(--receita); }
+.barra.receita > div, .barra.superou > div { background: var(--receita); }
 .orcamento + .orcamento { margin-top: 10px; }
 .orcamento .linha-topo { display: flex; justify-content: space-between; font-size: 13px; }
 
@@ -440,6 +440,24 @@ function totalsByTag(txs) {
   return m;
 }
 
+// Tags-mãe que só têm lançamentos de investimento (passar do limite nelas é bom sinal).
+function tagsDeInvestimento(txs, tags) {
+  const tipos = new Map();
+  for (const t of txs) {
+    if (!t.tag_id || t.kind === 'receita') continue;
+    const k = rootTagId(t.tag_id, tags), u = tipos.get(k) || { inv: 0, outros: 0 };
+    if (t.kind === 'investimento') u.inv++; else u.outros++;
+    tipos.set(k, u);
+  }
+  return new Set([...tipos].filter(([, u]) => u.inv > 0 && u.outros === 0).map(([k]) => k));
+}
+// Cor da barra: em tag de investimento, chegar ou passar do limite é verde e não há alerta.
+function statusBarra(saiuCents, limitCents, investimento) {
+  if (!investimento) return budgetStatus(saiuCents, limitCents);
+  return limitCents && saiuCents >= limitCents ? 'superou' : 'ok';
+}
+function classeTextoBarra(st) { return st === 'estourou' ? 'negativo' : st === 'superou' ? 'positivo' : ''; }
+
 function budgetStatus(spentCents, limitCents) {
   if (!limitCents) return 'ok';
   if (spentCents > limitCents) return 'estourou';
@@ -707,6 +725,7 @@ TELAS.mes = async function (el) {
   }
   const { comuns: gastosTag, extras: extrasTag } = orcamentoPorTag(txs, state.tags);
   const receitasTag = totalsByRootTag(txs.filter((t) => t.kind === 'receita').map((t) => ({ ...t, kind: 'gasto' })), state.tags);
+  const investeMes = tagsDeInvestimento(txs, state.tags);
   const orc = [...limites.entries()].map(([tag, lim]) => {
     const gasto = gastosTag.get(tag) || 0, entrou = receitasTag.get(tag) || 0;
     const extraTag = extrasTag.get(tag) || 0;
@@ -717,10 +736,10 @@ TELAS.mes = async function (el) {
         <div class="linha-topo"><span>${esc(tagNome(tag))}</span><span class="positivo">Entrou ${formatBRL(entrou)} de ${formatBRL(lim)}</span></div>
         <div class="barra receita"><div style="width:${pct}%"></div></div></div>`;
     }
-    const st = budgetStatus(gasto, lim);
+    const st = statusBarra(gasto, lim, investeMes.has(tag));
     const pct = Math.min(100, Math.round(lim ? (gasto / lim) * 100 : 0));
     return `<div class="orcamento" data-tag="${tag}">
-      <div class="linha-topo"><span>${esc(tagNome(tag))}</span><span class="${st === 'estourou' ? 'negativo' : ''}">${formatBRL(gasto)} de ${formatBRL(lim)}</span></div>
+      <div class="linha-topo"><span>${esc(tagNome(tag))}</span><span class="${classeTextoBarra(st)}">${formatBRL(gasto)} de ${formatBRL(lim)}</span></div>
       <div class="barra ${st}"><div style="width:${pct}%"></div></div>${notaExtra}</div>`;
   }).join('');
 
@@ -1526,9 +1545,10 @@ TELAS.orcamento = async function (el) {
     `<div title="${esc(t.name)}" style="width:${(limite.get(t.id).monthly_cents / escalaBarra) * 100}%; background:${esc(t.color)}"></div>`).join('') +
     (renda > planejado ? `<div title="Sobra" style="width:${((renda - planejado) / escalaBarra) * 100}%; background:#B9CFA0"></div>` : '');
 
+  const investe = tagsDeInvestimento(meus, state.tags);
   const linhaDespesa = (t) => {
     const b = limite.get(t.id), lim = b ? b.monthly_cents : 0, gasto = comuns.get(t.id) || 0, extra = extras.get(t.id) || 0;
-    const st = budgetStatus(gasto, lim), pct = lim ? Math.min(100, Math.round((gasto / lim) * 100)) : 0;
+    const st = statusBarra(gasto, lim, investe.has(t.id)), pct = lim ? Math.min(100, Math.round((gasto / lim) * 100)) : 0;
     return `<div class="orc-linha" data-tag="${t.id}">
       <div class="orc-topo">
         <span class="bolinha" style="background:${esc(t.color)}"><i class="ti ti-${esc(t.icon)}"></i></span>
@@ -1536,7 +1556,7 @@ TELAS.orcamento = async function (el) {
         <label class="orc-campo"><span class="sr-only">Limite de ${esc(t.name)}</span>
           <input class="orc-limite" data-moeda inputmode="numeric" placeholder="Sem limite" value="${valorCampo(b)}"></label>
       </div>
-      <div class="suave">${lim ? `${pctRenda(lim)} do que entrou · ` : ''}saiu ${formatBRL(gasto)}${lim ? ` de ${formatBRL(lim)}` : ''}</div>
+      <div class="suave ${st === 'superou' ? 'positivo' : ''}">${lim ? `${pctRenda(lim)} do que entrou · ` : ''}saiu ${formatBRL(gasto)}${lim ? ` de ${formatBRL(lim)}` : ''}</div>
       ${lim ? `<div class="barra ${st}"><div style="width:${pct}%"></div></div>` : ''}
       ${extra ? `<div class="suave nota-extra">+ ${formatBRL(extra)} extraordinário (fora do orçamento)</div>` : ''}
     </div>`;
