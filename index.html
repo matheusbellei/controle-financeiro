@@ -103,6 +103,10 @@ main { max-width: 980px; margin: 0 auto; padding: 14px 16px 110px; }
 .filtros input, .filtros select { background: var(--espuma); border: 1px solid #D9BFA0; border-radius: 10px; padding: 8px 10px; width: 100%; }
 .filtros .linha { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
 .filtros select, .campo select { min-width: 0; max-width: 100%; text-overflow: ellipsis; }
+.acoes-filtro { display: flex; gap: 8px; flex-wrap: wrap; }
+.filtros-extra { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 8px; }
+.filtros-extra .campo { margin-top: 4px; }
+#resumo-filtro { padding: 0 4px; }
 #filtro-subtag { grid-column: 1 / -1; }
 
 /* Botão flutuante */
@@ -483,9 +487,11 @@ function primeiroNome(nome) {
   return primeiro.charAt(0).toUpperCase() + primeiro.slice(1).toLowerCase();
 }
 
-// Separa, por tag-mãe, os gastos comuns (que contam no orçamento) dos extraordinários.
+// Separa, por tag-mãe, o dinheiro que saiu (gasto, investimento e doação) em comum — que conta
+// no orçamento — e extraordinário, que fica de fora.
+const SAIDAS = ['gasto', 'investimento', 'doacao'];
 function orcamentoPorTag(txs, tags) {
-  const gastos = txs.filter((t) => t.kind === 'gasto');
+  const gastos = txs.filter((t) => SAIDAS.includes(t.kind)).map((t) => ({ ...t, kind: 'gasto' }));
   return {
     comuns: totalsByRootTag(gastos.filter((t) => !t.extraordinario), tags),
     extras: totalsByRootTag(gastos.filter((t) => t.extraordinario), tags),
@@ -734,16 +740,44 @@ TELAS.mes = async function (el) {
               ${tagsPrincipais(maesUsadas).map((t) => `<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select>
             <select id="filtro-pag" aria-label="Filtrar por pagamento"><option value="">Todo pagamento</option>
               ${Object.entries(PAGAMENTOS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select>
+            <select id="ordem-mes" aria-label="Ordenar">
+              <option value="recente">Mais recentes</option><option value="antiga">Mais antigos</option>
+              <option value="maior">Maior valor</option><option value="menor">Menor valor</option></select>
             <select id="filtro-subtag" aria-label="Filtrar por subtag" hidden></select>
           </div>
+          <div class="acoes-filtro">
+            <button class="btn btn-mini" id="mais-filtros" aria-expanded="false"><i class="ti ti-filter"></i>Mais filtros</button>
+            <button class="btn btn-mini" id="limpar-filtros"><i class="ti ti-x"></i>Limpar</button>
+          </div>
+          <div class="filtros-extra" id="filtros-extra" hidden>
+            <label class="campo"><span>Compra de</span><input id="filtro-de" type="date"></label>
+            <label class="campo"><span>até</span><input id="filtro-ate" type="date"></label>
+            <label class="campo"><span>Valor mínimo</span><input id="filtro-min" data-moeda inputmode="numeric" placeholder="R$ 0,00"></label>
+            <label class="campo"><span>Valor máximo</span><input id="filtro-max" data-moeda inputmode="numeric" placeholder="R$ 0,00"></label>
+          </div>
         </div>
+        <div class="suave" id="resumo-filtro" role="status"></div>
         <div class="lista" id="lista-mes"></div>
       </div>
     </div>`;
   $('#ir-orcamento', el).addEventListener('click', () => router.go('orcamento'));
   $('#mes-anterior', el).addEventListener('click', () => { mudarMes(-1); router.go('mes'); });
   $('#mes-seguinte', el).addEventListener('click', () => { mudarMes(1); router.go('mes'); });
-  for (const id of ['#busca-mes', '#filtro-subtag', '#filtro-pag']) $(id, el).addEventListener('input', desenharListaMes);
+  ligarMascaras(el);
+  for (const id of ['#busca-mes', '#filtro-subtag', '#filtro-pag', '#ordem-mes', '#filtro-de', '#filtro-ate', '#filtro-min', '#filtro-max']) {
+    $(id, el).addEventListener('input', desenharListaMes);
+  }
+  $('#mais-filtros', el).addEventListener('click', () => {
+    const extra = $('#filtros-extra', el);
+    extra.hidden = !extra.hidden;
+    $('#mais-filtros', el).setAttribute('aria-expanded', String(!extra.hidden));
+  });
+  $('#limpar-filtros', el).addEventListener('click', () => {
+    for (const id of ['#busca-mes', '#filtro-tag', '#filtro-pag', '#filtro-de', '#filtro-ate', '#filtro-min', '#filtro-max']) $(id, el).value = '';
+    $('#ordem-mes', el).value = 'recente';
+    $('#filtro-subtag', el).hidden = true; $('#filtro-subtag', el).innerHTML = '';
+    desenharListaMes();
+  });
   $('#filtro-tag', el).addEventListener('input', () => {
     const mae = $('#filtro-tag', el).value;
     const usadas = mesDados.txs.map((t) => t.tag_id);
@@ -759,12 +793,29 @@ TELAS.mes = async function (el) {
 function desenharListaMes() {
   const busca = ($('#busca-mes').value || '').trim().toLowerCase();
   const tag = $('#filtro-tag').value, sub = $('#filtro-subtag').value, pag = $('#filtro-pag').value;
+  const de = $('#filtro-de').value, ate = $('#filtro-ate').value;
+  const min = $('#filtro-min').value ? parseBRL($('#filtro-min').value) : null;
+  const max = $('#filtro-max').value ? parseBRL($('#filtro-max').value) : null;
+  const ordem = $('#ordem-mes').value;
+  // Ordem: por data da compra (desempate pela data em que conta) ou pelo valor.
+  const porData = (a, b) => a.purchase_date.localeCompare(b.purchase_date) || a.competence_date.localeCompare(b.competence_date) ||
+    String(a.created_at || '').localeCompare(String(b.created_at || ''));
+  const porValor = (a, b) => Math.abs(a.amount_cents) - Math.abs(b.amount_cents);
+  const comparar = { recente: (a, b) => porData(b, a), antiga: porData, maior: (a, b) => porValor(b, a), menor: porValor }[ordem] || ((a, b) => porData(b, a));
   const itens = mesDados.txs
     .filter((t) => !busca || (t.description || '').toLowerCase().includes(busca) || tagNome(t.tag_id).toLowerCase().includes(busca))
     .filter((t) => !tag || rootTagId(t.tag_id, state.tags) === tag)
     .filter((t) => !sub || t.tag_id === sub)
     .filter((t) => !pag || t.payment === pag)
-    .sort((a, b) => b.competence_date.localeCompare(a.competence_date) || String(b.created_at || '').localeCompare(String(a.created_at || '')));
+    .filter((t) => (!de || t.purchase_date >= de) && (!ate || t.purchase_date <= ate))
+    .filter((t) => (min === null || Math.abs(t.amount_cents) >= min) && (max === null || Math.abs(t.amount_cents) <= max))
+    .sort(comparar);
+  // Resumo do que está na lista (respeita todos os filtros).
+  const saiu = itens.filter((t) => t.kind !== 'receita').reduce((s, t) => s + t.amount_cents, 0);
+  const entrou = itens.filter((t) => t.kind === 'receita').reduce((s, t) => s + t.amount_cents, 0);
+  $('#resumo-filtro').textContent = itens.length
+    ? [`${itens.length} ${itens.length === 1 ? 'lançamento' : 'lançamentos'}`, `Saiu ${formatBRL(saiu)}`].concat(entrou ? [`Entrou ${formatBRL(entrou)}`] : []).join(' · ')
+    : '';
   const lista = $('#lista-mes');
   if (!itens.length) {
     lista.innerHTML = mesDados.txs.length
@@ -1422,7 +1473,7 @@ TELAS.orcamento = async function (el) {
 
   const usos = new Map();
   for (const t of meus) {
-    if (!t.tag_id || (t.kind !== 'gasto' && t.kind !== 'receita')) continue;
+    if (!t.tag_id) continue;
     const k = rootTagId(t.tag_id, state.tags), u = usos.get(k) || { r: 0, g: 0 };
     if (t.kind === 'receita') u.r++; else u.g++;
     usos.set(k, u);
@@ -1438,7 +1489,8 @@ TELAS.orcamento = async function (el) {
   const receitasTag = totalsByRootTag(doMes.filter((t) => t.kind === 'receita').map((t) => ({ ...t, kind: 'gasto' })), state.tags);
 
   const planejado = despesas.reduce((s, t) => s + (limite.has(t.id) ? limite.get(t.id).monthly_cents : 0), 0);
-  const gastoComum = [...comuns.values()].reduce((a, b) => a + b, 0);
+  // Cartão do topo: só gastos (investimento e doação têm os próprios totais).
+  const gastoComum = doMes.filter((t) => t.kind === 'gasto' && !t.extraordinario).reduce((a, t) => a + t.amount_cents, 0);
   const totalExtra = [...extras.values()].reduce((a, b) => a + b, 0);
   const pctRenda = (v) => (renda > 0 ? `${Math.round((v / renda) * 100)}%` : '—');
   const valorCampo = (b) => (b ? mascaraDigitos(String(b.monthly_cents)) : '');
@@ -1469,7 +1521,7 @@ TELAS.orcamento = async function (el) {
         <label class="orc-campo"><span class="sr-only">Limite de ${esc(t.name)}</span>
           <input class="orc-limite" data-moeda inputmode="numeric" placeholder="Sem limite" value="${valorCampo(b)}"></label>
       </div>
-      <div class="suave">${lim ? `${pctRenda(lim)} do que entrou · ` : ''}gasto ${formatBRL(gasto)}${lim ? ` de ${formatBRL(lim)}` : ''}</div>
+      <div class="suave">${lim ? `${pctRenda(lim)} do que entrou · ` : ''}saiu ${formatBRL(gasto)}${lim ? ` de ${formatBRL(lim)}` : ''}</div>
       ${lim ? `<div class="barra ${st}"><div style="width:${pct}%"></div></div>` : ''}
       ${extra ? `<div class="suave nota-extra">+ ${formatBRL(extra)} extraordinário (fora do orçamento)</div>` : ''}
     </div>`;
