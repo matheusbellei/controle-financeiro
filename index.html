@@ -246,6 +246,7 @@ function traduzErro(error) {
   const msg = String((error && error.message) || error || '');
   if (/Invalid login credentials/i.test(msg)) return 'E-mail ou senha incorretos.';
   if (/Email not confirmed/i.test(msg)) return 'Este e-mail ainda não foi confirmado no Supabase.';
+  if (/extraordinario_cents/i.test(msg)) return 'O banco ainda não aceita extraordinário parcial. No Supabase, rode o arquivo migracao-004-extraordinario-parcial.sql no SQL Editor.';
   if (/extraordinario/i.test(msg)) return 'O banco ainda não tem a opção de gasto extraordinário. No Supabase, rode o arquivo migracao-003-extraordinario-excluir-tags.sql no SQL Editor.';
   if (/kind_check/i.test(msg)) return 'O banco ainda não aceita doações. No Supabase, rode o arquivo migracao-002-doacoes.sql no SQL Editor.';
   if (/permission denied for table tags/i.test(msg)) return 'O banco ainda não permite excluir tags. No Supabase, rode o arquivo migracao-003-extraordinario-excluir-tags.sql no SQL Editor.';
@@ -516,12 +517,29 @@ function primeiroNome(nome) {
 // Separa, por tag-mãe, o dinheiro que saiu (gasto, investimento e doação) em comum — que conta
 // no orçamento — e extraordinário, que fica de fora.
 const SAIDAS = ['gasto', 'investimento', 'doacao'];
+// Quanto de um lançamento é extraordinário (vazio = o valor inteiro).
+function valorExtra(t) {
+  if (!t.extraordinario) return 0;
+  return t.extraordinario_cents == null ? t.amount_cents : Math.min(t.extraordinario_cents, t.amount_cents);
+}
 function orcamentoPorTag(txs, tags) {
-  const gastos = txs.filter((t) => SAIDAS.includes(t.kind)).map((t) => ({ ...t, kind: 'gasto' }));
+  const saidas = txs.filter((t) => SAIDAS.includes(t.kind));
   return {
-    comuns: totalsByRootTag(gastos.filter((t) => !t.extraordinario), tags),
-    extras: totalsByRootTag(gastos.filter((t) => t.extraordinario), tags),
+    comuns: totalsByRootTag(saidas.map((t) => ({ ...t, kind: 'gasto', amount_cents: t.amount_cents - valorExtra(t) })), tags),
+    extras: totalsByRootTag(saidas.filter((t) => valorExtra(t) > 0).map((t) => ({ ...t, kind: 'gasto', amount_cents: valorExtra(t) })), tags),
   };
+}
+// Divide a parte extraordinária entre as parcelas, na proporção do valor de cada uma.
+function dividirExtra(valores, extraTotal) {
+  const total = valores.reduce((a, b) => a + b, 0);
+  if (!total) return valores.map(() => 0);
+  const partes = valores.map((v) => Math.floor((v * extraTotal) / total));
+  let resto = extraTotal - partes.reduce((a, b) => a + b, 0);
+  for (let i = 0; resto > 0 && i < partes.length; i++) {
+    const folga = Math.min(resto, valores[i] - partes[i]);
+    partes[i] += folga; resto -= folga;
+  }
+  return partes;
 }
 // "4890" → "48,90": os dígitos entram pela direita, como no app do banco.
 function mascaraDigitos(texto) {
@@ -877,7 +895,9 @@ function itemHTML(t) {
   if (t.kind === 'gasto') det.push(esc(tagNome(t.tag_id)));
   else det.push(t.tag_id ? `${TIPOS[t.kind]} · ${esc(tagNome(t.tag_id))}` : TIPOS[t.kind]);
   if (t.payment) det.push(PAGAMENTOS[t.payment]);
-  if (t.extraordinario) det.push('<strong>Extraordinário</strong>');
+  if (t.extraordinario) {
+    det.push(valorExtra(t) < t.amount_cents ? `<strong>Extraordinário: ${formatBRL(valorExtra(t))}</strong>` : '<strong>Extraordinário</strong>');
+  }
   if (t.installment_total > 1) det.push(`parcela ${t.installment_n}/${t.installment_total}`);
   if (t.payment === 'credito' && t.purchase_date !== t.competence_date) det.push(`compra ${formatDateBR(t.purchase_date).slice(0, 5)}`);
   const sinal = t.kind === 'receita' ? 'positivo' : '';
@@ -926,6 +946,8 @@ function abrirLancamento(tx = null) {
     <label class="campo" id="campo-extra" style="display:flex; gap:8px; align-items:flex-start">
       <input type="checkbox" id="lanc-extra" style="width:auto; margin-top:3px" ${tx && tx.extraordinario ? 'checked' : ''}>
       <span style="margin:0">Gasto extraordinário<br><span class="suave">Planejado para ficar fora do orçamento (ex.: cirurgia, viagem). Conta no que saiu, mas não estoura a barra da tag.</span></span></label>
+    <label class="campo" id="campo-extra-valor" hidden><span>Quanto disso é extraordinário (o resto conta no orçamento)</span>
+      <input id="lanc-extra-valor" data-moeda inputmode="numeric" value="${tx && tx.extraordinario ? mascaraDigitos(String(valorExtra(tx))) : ''}"></label>
     <label class="campo" id="campo-estorno" style="display:flex; gap:8px; align-items:center">
       <input type="checkbox" id="lanc-estorno" style="width:auto" ${tx && tx.amount_cents < 0 ? 'checked' : ''}><span style="margin:0">É um estorno (devolução)</span></label>
     <div class="aviso-credito" id="lanc-aviso"></div>
@@ -975,6 +997,7 @@ function abrirLancamento(tx = null) {
       $('#campo-pag', m).hidden = !gasto;
       $('#campo-estorno', m).hidden = f.tipo !== 'gasto';
       $('#campo-extra', m).hidden = f.tipo !== 'gasto';
+      $('#campo-extra-valor', m).hidden = f.tipo !== 'gasto' || !$('#lanc-extra', m).checked;
       $('#campo-parcelas', m).hidden = editando || !credito;
       $('#campo-fatura', m).hidden = !credito;
       $$('[data-tipo]', m).forEach((b) => b.classList.toggle('ativo', b.dataset.tipo === f.tipo));
@@ -1000,6 +1023,12 @@ function abrirLancamento(tx = null) {
     $$('[data-pag]', m).forEach((b) => b.addEventListener('click', () => { f.pag = b.dataset.pag; atualizar(); }));
     for (const id of ['#lanc-data', '#lanc-parcelas']) $(id, m).addEventListener('input', atualizar);
     $('#lanc-estorno', m).addEventListener('change', atualizar);
+    // A parte extraordinária acompanha o total até a pessoa mexer nela.
+    let extraManual = !!(tx && tx.extraordinario);
+    const sugerirExtra = () => { if (!extraManual) $('#lanc-extra-valor', m).value = $('#lanc-valor', m).value; };
+    $('#lanc-extra', m).addEventListener('change', () => { sugerirExtra(); atualizar(); });
+    $('#lanc-extra-valor', m).addEventListener('input', () => { extraManual = true; });
+    $('#lanc-valor', m).addEventListener('input', sugerirExtra);
     // Mudar o total volta a dividir igual.
     $('#lanc-valor', m).addEventListener('input', () => { parcManual = false; desenharParcelas(); });
     $('#lanc-fechar', m).addEventListener('click', fecharModal);
@@ -1034,6 +1063,14 @@ async function salvarLancamento(tx, f) {
   // Só envia o campo quando há algo a dizer: assim o app funciona mesmo antes da migração 003.
   const extra = f.tipo === 'gasto' && $('#lanc-extra').checked;
   if (extra || (tx && tx.extraordinario !== undefined)) campos.extraordinario = extra;
+  // Parte extraordinária: vazio = o valor inteiro. Só manda a coluna quando precisa (funciona antes da migração 004).
+  const extraValor = extra ? parseBRL($('#lanc-extra-valor').value) : 0;
+  if (extra && (!extraValor || extraValor <= 0)) { erro.textContent = 'Informe quanto do valor é extraordinário.'; return; }
+  if (extra && extraValor > valor) { erro.textContent = 'A parte extraordinária não pode ser maior que o valor do lançamento.'; return; }
+  const parcial = extra && extraValor < valor;
+  const temColuna = !!(tx && tx.extraordinario_cents !== undefined);
+  const extraCentsDe = (amount) => (parcial ? Math.round((amount * extraValor) / valor) : null);
+  if (parcial || temColuna) campos.extraordinario_cents = extraCentsDe(valor);
   const extraCampo = 'extraordinario' in campos ? { extraordinario: campos.extraordinario } : {};
   const btn = $('#lanc-salvar');
   btn.disabled = true;
@@ -1043,8 +1080,11 @@ async function salvarLancamento(tx, f) {
       if (n > 1) {
         const group = novoId();
         const valores = $('#modal').lerParcelas();
-        await store.insert('transactions', splitInstallments(valor, n, data, fatura, valores).map((p) => ({
-          ...campos, ...p, purchase_date: data, installment_group: group })));
+        const parcelas = splitInstallments(valor, n, data, fatura, valores);
+        const extras = parcial ? dividirExtra(parcelas.map((p) => p.amount_cents), extraValor) : null;
+        await store.insert('transactions', parcelas.map((p, i) => ({
+          ...campos, ...p, purchase_date: data, installment_group: group,
+          ...(extras ? { extraordinario_cents: extras[i] } : {}) })));
       } else {
         await store.insert('transactions', { ...campos, amount_cents: estorno ? -valor : valor,
           purchase_date: data, competence_date: competencia });
@@ -1054,6 +1094,7 @@ async function salvarLancamento(tx, f) {
       const mudouValor = valor !== Math.abs(tx.amount_cents);
       if (escopo === 'so-esta') {
         await store.update('transactions', tx.id, { description: campos.description, tag_id: campos.tag_id, ...extraCampo,
+          ...('extraordinario_cents' in campos ? { extraordinario_cents: campos.extraordinario_cents } : {}),
           amount_cents: estorno ? -valor : valor, competence_date: competencia });
       } else {
         const irmas = (await store.list('transactions', { owner_id: state.user.id }))
@@ -1062,6 +1103,7 @@ async function salvarLancamento(tx, f) {
         for (const t of irmas) {
           await store.update('transactions', t.id, {
             description: campos.description, tag_id: campos.tag_id, purchase_date: data, ...extraCampo,
+            ...('extraordinario_cents' in campos ? { extraordinario_cents: extraCentsDe(mudouValor ? valor : t.amount_cents) } : {}),
             competence_date: addMonthsDay(primeira, t.installment_n - 1),
             ...(mudouValor ? { amount_cents: valor } : {}),
           });
@@ -1524,7 +1566,7 @@ TELAS.orcamento = async function (el) {
 
   const planejado = despesas.reduce((s, t) => s + (limite.has(t.id) ? limite.get(t.id).monthly_cents : 0), 0);
   // Cartão do topo: só gastos (investimento e doação têm os próprios totais).
-  const gastoComum = doMes.filter((t) => t.kind === 'gasto' && !t.extraordinario).reduce((a, t) => a + t.amount_cents, 0);
+  const gastoComum = doMes.filter((t) => t.kind === 'gasto').reduce((a, t) => a + t.amount_cents - valorExtra(t), 0);
   const totalExtra = [...extras.values()].reduce((a, b) => a + b, 0);
   const pctRenda = (v) => (renda > 0 ? `${Math.round((v / renda) * 100)}%` : '—');
   const valorCampo = (b) => (b ? mascaraDigitos(String(b.monthly_cents)) : '');
