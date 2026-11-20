@@ -686,25 +686,91 @@ function subtagsDe(maeId, incluir = []) {
   return state.tags.filter((t) => t.parent_id === maeId && (!t.archived || incluir.includes(t.id)))
     .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 }
+const NOVA = '__nova__';
+function opcoesTagsHTML(mae) {
+  return `<option value="">Sem tag</option>` +
+    tagsPrincipais([mae]).map((t) => `<option value="${t.id}" ${t.id === mae ? 'selected' : ''}>${esc(t.name)}</option>`).join('') +
+    `<option value="${NOVA}">+ Nova tag…</option>`;
+}
 function seletorTagHTML(p, selecionada) {
   const sel = tagPorId(selecionada);
   const mae = sel ? (sel.parent_id || sel.id) : '';
-  return `<label class="campo"><span>Tag</span><select id="${p}-tag"><option value="">Sem tag</option>
-      ${tagsPrincipais([mae]).map((t) => `<option value="${t.id}" ${t.id === mae ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
+  return `<label class="campo"><span>Tag</span><select id="${p}-tag">${opcoesTagsHTML(mae)}</select></label>
     <label class="campo" id="campo-${p}-subtag" hidden><span>Subtag</span><select id="${p}-subtag"></select></label>`;
 }
+// Seletor de tag em dois passos. "+ Nova tag…" e "+ Nova subtag…" criam ali mesmo, sem sair do formulário.
 function ligarSeletorTag(m, p, selecionada) {
   const sel = tagPorId(selecionada);
   let escolhida = sel && sel.parent_id ? sel.id : '';
+  let maeAtual = sel ? (sel.parent_id || sel.id) : '';
+  const campoTag = $(`#${p}-tag`, m), campoSub = $(`#${p}-subtag`, m);
   const preencher = () => {
-    const mae = $(`#${p}-tag`, m).value;
+    const mae = campoTag.value;
     const subs = mae ? subtagsDe(mae, [escolhida]) : [];
-    $(`#campo-${p}-subtag`, m).hidden = !subs.length;
-    $(`#${p}-subtag`, m).innerHTML = `<option value="">Sem subtag</option>` +
-      subs.map((t) => `<option value="${t.id}" ${t.id === escolhida ? 'selected' : ''}>${esc(t.name)}</option>`).join('');
+    $(`#campo-${p}-subtag`, m).hidden = !mae;
+    campoSub.innerHTML = `<option value="">Sem subtag</option>` +
+      subs.map((t) => `<option value="${t.id}" ${t.id === escolhida ? 'selected' : ''}>${esc(t.name)}</option>`).join('') +
+      `<option value="${NOVA}">+ Nova subtag…</option>`;
   };
-  $(`#${p}-tag`, m).addEventListener('input', () => { escolhida = ''; preencher(); });
+  const usar = (mae, sub) => {
+    maeAtual = mae; escolhida = sub;
+    campoTag.innerHTML = opcoesTagsHTML(mae);
+    campoTag.value = mae;
+    preencher();
+  };
+  campoTag.addEventListener('input', () => {
+    if (campoTag.value === NOVA) {
+      campoTag.value = maeAtual;
+      abrirNovaTagInline(m, null, (nova) => usar(nova.id, ''));
+      return;
+    }
+    maeAtual = campoTag.value; escolhida = ''; preencher();
+  });
+  campoSub.addEventListener('input', () => {
+    if (campoSub.value === NOVA) {
+      campoSub.value = escolhida;
+      abrirNovaTagInline(m, maeAtual, (nova) => usar(nova.parent_id, nova.id));
+      return;
+    }
+    escolhida = campoSub.value;
+  });
   preencher();
+}
+
+// Mini formulário de tag/subtag dentro do formulário aberto (mesmas cores e ícones da aba Tags).
+// O que já foi digitado fica guardado: o formulário só é escondido enquanto o painel está aberto.
+function abrirNovaTagInline(m, maeId, aoCriar) {
+  const ehSub = maeId !== null;
+  const f = { cor: ehSub ? '#D4A373' : '#C68B59', icone: 'tag' };
+  const outros = [...m.children].map((c) => [c, c.hidden]);
+  outros.forEach(([c]) => { c.hidden = true; });
+  const painel = document.createElement('div');
+  painel.id = 'nova-tag-inline';
+  painel.innerHTML = `<div class="topo"><h2>${ehSub ? 'Nova subtag' : 'Nova tag'}</h2></div>
+    <label class="campo"><span>Nome</span><input id="nt-nome" placeholder="${ehSub ? 'Mercado' : 'Alimentação'}"></label>
+    ${ehSub ? `<label class="campo"><span>Pertence à tag</span><select id="nt-tag">${tagsPrincipais([maeId]).map((t) =>
+      `<option value="${t.id}" ${t.id === maeId ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>` : ''}
+    ${camposCorIcone(f)}
+    <div class="erro" id="nt-erro" role="alert"></div>
+    <div class="rodape-modal"><button class="btn" id="nt-cancelar">Voltar</button>
+      <button class="btn btn-principal" id="nt-salvar">Criar e usar</button></div>`;
+  m.appendChild(painel);
+  ligarCorIcone(painel, f);
+  m.scrollTop = 0;
+  $('#nt-nome', painel).focus();
+  const fechar = () => { painel.remove(); outros.forEach(([c, h]) => { c.hidden = h; }); };
+  $('#nt-cancelar', painel).addEventListener('click', fechar);
+  $('#nt-salvar', painel).addEventListener('click', async () => {
+    const nome = $('#nt-nome', painel).value.trim();
+    if (!nome) { $('#nt-erro', painel).textContent = `Dê um nome para a ${ehSub ? 'subtag' : 'tag'}.`; return; }
+    const campos = { name: nome, color: f.cor, icon: f.icone, parent_id: ehSub ? $('#nt-tag', painel).value : null };
+    const nova = await tentar(async () => (await store.insert('tags', campos))[0]);
+    if (!nova) return;
+    state.tags.push(nova);
+    fechar();
+    aoCriar(nova);
+    avisar(ehSub ? 'Subtag criada' : 'Tag criada');
+  });
 }
 function valorTag(m, p) { return $(`#${p}-subtag`, m).value || $(`#${p}-tag`, m).value || null; }
 
@@ -2006,7 +2072,12 @@ function ligarCasca() {
   $$('#menu [data-tela]').forEach((b) => b.addEventListener('click', () => router.go(b.dataset.tela)));
   $('#menu-sair').addEventListener('click', async () => { $('#menu').hidden = true; await store.signOut(); state.user = null; mostrarLogin(); });
   $('#modal-fundo').addEventListener('click', (ev) => { if (ev.target.id === 'modal-fundo') fecharModal(); });
-  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && !$('#modal-fundo').hidden) fecharModal(); });
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'Escape' || $('#modal-fundo').hidden) return;
+    // Com o painel de nova tag aberto, o Esc só volta ao lançamento.
+    if ($('#nova-tag-inline')) { $('#nt-cancelar').click(); return; }
+    fecharModal();
+  });
   $('#novo-lancamento').addEventListener('click', () => abrirLancamento());
 }
 /* === FIM 5 === */
