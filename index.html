@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Controle de Finanças Pessoais</title>
 <meta name="theme-color" content="#3B2416">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icone-180.png">
+<link rel="icon" type="image/png" href="icone-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Finanças pessoais">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
@@ -2130,6 +2135,11 @@ function desenharGrafico(canvasId, tipo, labels, datasets, opcoes = {}) {
 // window.__TEST_STORE__ só existe nos testes automáticos (banco em memória).
 const store = window.__TEST_STORE__ ||
   createStore(window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY));
+
+// App instalável: registra o service worker (fora dos testes automáticos).
+if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !window.__TEST_STORE__) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+}
 
 (async function iniciar() {
   ligarCasca();

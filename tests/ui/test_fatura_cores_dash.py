@@ -85,7 +85,7 @@ class CoresIcones(UITest):
     def test_subtag_tem_as_mesmas_opcoes(self):
         self.login(); self.go('tags'); p = self.page
         p.click('#tag-nova'); p.fill('#tag-nome', 'Casa'); p.click('#tag-salvar'); p.wait_for_selector('#modal-fundo', state='hidden')
-        self.go('subtags'); p.click('#subtag-nova')
+        self.go('tags'); self.nova_subtag('Casa')
         self.assertGreaterEqual(p.locator('#modal .icones [data-icone]').count(), 150)
         self.assertEqual(p.locator('#modal #cor-livre').count(), 1)
 

@@ -103,3 +103,13 @@ test('tipo que o banco ainda não aceita pede para rodar a atualização', async
   const client = fakeClient({ data: null, error: { message: 'new row for relation "transactions" violates check constraint "transactions_kind_check"' } });
   await assert.rejects(makeStore(client).insert('transactions', {}), /migracao-002-doacoes\.sql/);
 });
+
+test('coluna extraordinário ausente pede para rodar a atualização 003', async () => {
+  const client = fakeClient({ data: null, error: { message: "Could not find the 'extraordinario' column of 'transactions' in the schema cache" } });
+  await assert.rejects(makeStore(client).insert('transactions', {}), /migracao-003-extraordinario-excluir-tags\.sql/);
+});
+
+test('coluna de extraordinário parcial ausente pede para rodar a atualização 004', async () => {
+  const client = fakeClient({ data: null, error: { message: "Could not find the 'extraordinario_cents' column of 'transactions' in the schema cache" } });
+  await assert.rejects(makeStore(client).insert('transactions', {}), /migracao-004-extraordinario-parcial\.sql/);
+});

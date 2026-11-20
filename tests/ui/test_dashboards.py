@@ -40,11 +40,10 @@ class Dash(UITest):
         c = self.chart('graf-subtag')
         self.assertEqual(dict(zip(c['labels'], c['datasets'][0]['data'])), {'Mercado': 500, 'Alimentação (direto)': 200})
 
-    def test_juntos_inclui_a_outra_pessoa(self):
+    def test_gastos_da_outra_pessoa_nao_entram(self):
         self.preparar(); self.go('dashboards')
-        self.page.click('#tela-dashboards [data-ver="juntos"]'); self.pronto()
-        d = dict(zip(*[self.chart('graf-tag')[k] for k in ('labels',)], self.chart('graf-tag')['datasets'][0]['data']))
-        self.assertEqual(d['Moradia'], 1800)
+        d = dict(zip(self.chart('graf-tag')['labels'], self.chart('graf-tag')['datasets'][0]['data']))
+        self.assertEqual(d['Moradia'], 1500)
 
     def test_periodo_ano(self):
         self.preparar(); self.go('dashboards')

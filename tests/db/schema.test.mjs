@@ -26,6 +26,8 @@ function fails(fn, re) { assert.throws(fn, (e) => re.test(String(e.stderr || e.m
 before(() => {
   psql('postgres', 'drop database if exists finteste');
   psql('postgres', 'drop database if exists finteste_mig');
+  psql('postgres', 'drop database if exists finteste_mig3');
+  psql('postgres', 'drop database if exists finteste_mig4');
   psql('postgres', 'create database finteste');
   psqlFile('finteste', 'tests/db/supabase-stub.sql');
   psqlFile('finteste', 'supabase/schema.sql');
@@ -60,11 +62,12 @@ test('visitante sem login não lê nada', () => {
   fails(() => as(null, 'select * from transactions'), /permission denied/);
 });
 
-test('tags: qualquer logado cria e edita, ninguém exclui', () => {
+test('tags: qualquer logado cria, edita e exclui', () => {
   as(A, `insert into tags(name,color,icon,created_by) values ('Moradia','#6F4E37','home','${A}')`);
   as(B, `update tags set name='Casa' where name='Moradia'`);
+  as(A, `insert into tags(name,color,icon,created_by) values ('Temporária','#6F4E37','tag','${A}')`);
+  as(B, `delete from tags where name='Temporária'`);
   assert.equal(psql('finteste', `select name from tags`), 'Casa');
-  fails(() => as(A, `delete from tags`), /permission denied/);
 });
 
 test('o mesmo recorrente não gera dois lançamentos na mesma competência', () => {
@@ -131,4 +134,42 @@ test('atualização 002 em um banco antigo passa a aceitar doação', () => {
   psqlFile('finteste_mig', 'supabase/migracao-002-doacoes.sql');
   psqlFile('finteste_mig', 'supabase/migracao-002-doacoes.sql'); // rodar duas vezes não quebra
   psql('finteste_mig', ins);
+});
+
+test('lançamento pode ser marcado como extraordinário (padrão: não)', () => {
+  const id = as(A, `insert into transactions(owner_id,kind,amount_cents,purchase_date,competence_date,payment)
+         values ('${A}','gasto',100,'2026-11-03','2026-11-03','pix') returning id`);
+  assert.equal(psql('finteste', `select extraordinario from transactions where id='${id}'`), 'f');
+  as(A, `insert into transactions(owner_id,kind,amount_cents,purchase_date,competence_date,payment,extraordinario)
+         values ('${A}','gasto',1500000,'2026-11-03','2026-11-03','pix',true)`);
+});
+
+test('atualização 003 adiciona extraordinário a um banco já em uso', () => {
+  psql('postgres', 'drop database if exists finteste_mig3');
+  psql('postgres', 'create database finteste_mig3');
+  const old = execFileSync('git', ['show', '1004d1f:supabase/schema.sql'], { encoding: 'utf8' });
+  execFileSync('psql', ['-h', PG.host, '-p', PG.port, '-U', 'postgres', '-d', 'finteste_mig3', '-v', 'ON_ERROR_STOP=1', '-q'],
+    { input: readFileSync('tests/db/supabase-stub.sql', 'utf8') + old, stdio: ['pipe', 'pipe', 'pipe'] });
+  psql('finteste_mig3', `insert into auth.users values ('${A}','m@x.com')`);
+  psql('finteste_mig3', `insert into public.transactions(owner_id,kind,amount_cents,purchase_date,competence_date) values ('${A}','gasto',1,'2026-11-03','2026-11-03')`);
+  psqlFile('finteste_mig3', 'supabase/migracao-003-extraordinario-excluir-tags.sql');
+  psqlFile('finteste_mig3', 'supabase/migracao-003-extraordinario-excluir-tags.sql');
+  assert.equal(psql('finteste_mig3', 'select extraordinario from public.transactions'), 'f');
+});
+
+test('atualização 004 guarda quanto do lançamento é extraordinário', () => {
+  psql('postgres', 'drop database if exists finteste_mig4');
+  psql('postgres', 'create database finteste_mig4');
+  const old = execFileSync('git', ['show', 'HEAD:supabase/schema.sql'], { encoding: 'utf8' });
+  execFileSync('psql', ['-h', PG.host, '-p', PG.port, '-U', 'postgres', '-d', 'finteste_mig4', '-v', 'ON_ERROR_STOP=1', '-q'],
+    { input: readFileSync('tests/db/supabase-stub.sql', 'utf8') + old, stdio: ['pipe', 'pipe', 'pipe'] });
+  psqlFile('finteste_mig4', 'supabase/migracao-004-extraordinario-parcial.sql');
+  psqlFile('finteste_mig4', 'supabase/migracao-004-extraordinario-parcial.sql');
+  psql('finteste_mig4', `insert into auth.users values ('${A}','m@x.com')`);
+  psql('finteste_mig4', `insert into public.transactions(owner_id,kind,amount_cents,purchase_date,competence_date,extraordinario,extraordinario_cents) values ('${A}','gasto',1550000,'2026-11-03','2026-11-03',true,1500000)`);
+  assert.throws(() => psql('finteste_mig4', `insert into public.transactions(owner_id,kind,amount_cents,purchase_date,competence_date,extraordinario_cents) values ('${A}','gasto',1,'2026-11-03','2026-11-03',-5)`));
+});
+
+test('schema novo já tem a coluna de valor extraordinário', () => {
+  as(A, `insert into transactions(owner_id,kind,amount_cents,purchase_date,competence_date,extraordinario,extraordinario_cents) values ('${A}','gasto',100,'2026-11-03','2026-11-03',true,40)`);
 });

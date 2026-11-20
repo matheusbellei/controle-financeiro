@@ -25,6 +25,8 @@ Quando uma versão nova do app precisar mudar o banco, ela vem com um arquivo `s
 Rode esse arquivo no SQL Editor **antes** de usar a versão nova. Ele não apaga nenhum dado.
 
 - `migracao-002-doacoes.sql` — adiciona o tipo "Doação".
+- `migracao-003-extraordinario-excluir-tags.sql` — gasto extraordinário e exclusão de tags/subtags.
+- `migracao-004-extraordinario-parcial.sql` — só parte de um lançamento extraordinária.
 
 ### 2. Chave do app
 
@@ -41,6 +43,16 @@ Nunca coloque a *secret key* nem a senha do banco no arquivo.
 5. No Supabase, em **Authentication → URL Configuration**, coloque esse endereço em **Site URL**.
 
 O código fica público, mas os dados não: sem login ninguém lê nada (RLS + cadastro desligado).
+
+### Instalar no celular ou no PC (app instalável)
+
+O app é instalável (PWA): ganha ícone e abre em janela própria. Os arquivos `manifest.json`, `sw.js` e `icone-*.png` precisam estar na mesma pasta do `index.html`.
+
+- **Android (Chrome):** abra o site → menu ⋮ → **Instalar app** (ou aceite o aviso que aparece).
+- **PC (Chrome ou Edge):** clique no ícone de instalar na barra de endereço → **Instalar**.
+- **iPhone (Safari):** Compartilhar → **Adicionar à Tela de Início**.
+
+Os dados continuam no Supabase, então é preciso internet para ver e salvar lançamentos. Ao publicar uma versão nova, o app instalado se atualiza na próxima vez que abrir (às vezes é preciso fechar e abrir de novo). Para refazer os ícones: `python3 ferramentas/gerar-icones.py`.
 
 ### 4. Teste rápido
 

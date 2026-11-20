@@ -82,18 +82,13 @@ class Mes(UITest):
         self.assertIn('R$ 1.330,00', self.texto('#resumo-livre'))
         self.assertIn('R$ 800,00', self.texto('#resumo-investido'))
 
-    def test_dados_da_outra_pessoa_so_leitura(self):
+    def test_dados_da_outra_pessoa_nao_aparecem(self):
         self.preparar()
         self.seed('transactions', [gasto('u2', 5000, '2026-11-03', desc='Farmácia')])
         self.recarregar()
         self.assertNotIn('Farmácia', self.texto('#lista-mes'))
-        self.page.click('[data-ver="ela"]'); self.page.wait_for_timeout(200)
-        item = self.page.locator('#lista-mes .item', has_text='Farmácia')
-        self.assertEqual(item.count(), 1)
-        self.assertEqual(item.locator('.editar, .excluir').count(), 0)
-        self.page.click('[data-ver="juntos"]'); self.page.wait_for_timeout(200)
-        self.assertIn('Farmácia', self.texto('#lista-mes'))
-        self.assertFalse(self.page.is_visible('#novo-lancamento') and False)
+        self.assertIn('R$ 0,00', self.texto('#resumo-saiu'))
+        self.assertEqual(self.page.locator('[data-ver]').count(), 0)
 
     def test_recorrente_nao_duplica(self):
         self.preparar()
@@ -171,3 +166,37 @@ class Mes(UITest):
         self.seed('transactions', [gasto('u1', 90000, '2026-11-03', tag=a)])
         self.recarregar()
         self.assertEqual(self.page.locator(f'#orcamentos .orcamento[data-tag="{a}"] .barra.atencao').count(), 1)
+
+class SaldoHoje(UITest):
+    def preparar(self):
+        self.login()
+        self.seed('transactions', [
+            dict(owner_id='u1', kind='receita', amount_cents=100000, description='Salário', purchase_date='2026-11-01', competence_date='2026-11-01'),
+            gasto('u1', 10000, '2026-11-01', desc='Mercado'),
+            gasto('u1', 5000, '2026-11-01', desc='Gasolina', pag='dinheiro'),
+            gasto('u1', 20000, '2026-11-05', desc='Futuro'),
+            dict(owner_id='u1', kind='gasto', amount_cents=30000, description='Cartão', purchase_date='2026-10-20', competence_date='2026-11-10', payment='credito'),
+            dict(owner_id='u1', kind='receita', amount_cents=60000, description='Salário 2', purchase_date='2026-11-20', competence_date='2026-11-20')])
+        self.page.reload(); self.page.wait_for_selector('#resumo-livre'); self.pronto()
+
+    def texto(self, sel):
+        return self.page.inner_text(sel).replace('\xa0', ' ')
+
+    def test_livre_planejado_e_saldo_atual(self):
+        self.preparar()
+        self.assertIn('Livre planejado', self.texto('#tela-mes .resumo'))
+        self.assertIn('R$ 950,00', self.texto('#resumo-livre'))
+        self.assertIn('Saldo atual', self.texto('#tela-mes .resumo'))
+        self.assertIn('R$ 850,00', self.texto('#resumo-hoje'))
+        self.assertIn('até 02/11', self.texto('#cartao-hoje'))
+
+    def test_saldo_atual_so_no_mes_atual(self):
+        self.preparar()
+        self.page.click('#mes-seguinte'); self.pronto()
+        self.assertEqual(self.page.locator('#resumo-hoje').count(), 0)
+        self.page.click('#mes-anterior'); self.page.click('#mes-anterior'); self.pronto()
+        self.assertEqual(self.page.locator('#resumo-hoje').count(), 0)
+
+    def test_cabe_no_celular(self):
+        self.preparar()
+        self.assertLessEqual(self.page.evaluate('document.documentElement.scrollWidth'), 390)

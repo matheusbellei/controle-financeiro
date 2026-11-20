@@ -57,7 +57,15 @@
     },
     async remove(table, id) {
       need();
-      if (table === 'tags' || table === 'profiles') deny();
+      if (table === 'profiles') deny();
+      if (table === 'tags') {
+        const apagar = new Set([id, ...db.tags.filter((t) => t.parent_id === id).map((t) => t.id)]);
+        db.tags = db.tags.filter((t) => !apagar.has(t.id));
+        window.__memdb.tags = db.tags;
+        for (const t of [...db.transactions, ...db.recurrences]) if (apagar.has(t.tag_id)) t.tag_id = null;
+        const b = db.budgets.filter((x) => !apagar.has(x.tag_id)); db.budgets.length = 0; db.budgets.push(...b);
+        save(); return;
+      }
       const i = db[table].findIndex((r) => r.id === id && r.owner_id === user.id);
       if (i >= 0) db[table].splice(i, 1); save();
     },

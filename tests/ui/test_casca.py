@@ -37,3 +37,7 @@ class Casca(UITest):
         self.assertEqual(self.page.title(), 'Controle de Finanças Pessoais')
         self.assertIn('Controle de Finanças Pessoais', self.page.inner_text('#tela-login'))
         self.assertNotIn('Café', self.page.content())
+
+    def test_service_worker_desligado_nos_testes(self):
+        self.login()
+        self.assertEqual(self.page.evaluate('navigator.serviceWorker.getRegistrations().then((r) => r.length)'), 0)

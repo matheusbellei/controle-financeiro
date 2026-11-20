@@ -30,6 +30,48 @@ Decisões que o Claude tomou por conta própria. Cada item traz o que acontece s
 - **Cores e ícones:** 58 cores, mais "Outra cor" livre, e 217 ícones em 10 grupos, iguais para tags e subtags.
 - **Dashboards:** o filtro de período do topo saiu. Cada gráfico tem os próprios filtros (período, mês, ano, medida, anos comparados, formato), que ficam salvos neste navegador e não mudam a tela Mês. O filtro Eu / Denise / Juntos continua no topo, valendo para todos.
 
+## Ajustes de 05/11
+- **Cada um vê só o seu:** saiu o filtro Eu / Denise / Juntos de todas as telas. Mês, Ano, Dashboards, Metas, Recorrentes, backup e CSV mostram só os dados de quem está logado. Tags e subtags continuam compartilhadas. No banco, a leitura entre os dois ainda é permitida (só a tela esconde).
+- **Tag em dois passos:** no lançamento e no recorrente, escolhe-se a tag e depois a subtag (opcional). Saiu a lista "Mais usadas".
+- **Filtro da lista do Mês:** só tags; ao escolher uma, aparece o filtro de subtag. Filtrar pela tag inclui as subtags dela.
+- **Orçamento de tag de receita:** quando no mês a tag só tem receitas, a barra vira verde e mostra "Entrou X de Y" (meta de receita).
+- **Receitas e investimentos** mostram a tag na lista.
+- **Celular:** a página não passa mais da largura da tela (os seletores com nomes compridos alargavam tudo).
+
+## Ajustes de 08/11
+- **Tags e subtags em blocos:** cada tag é um cartão com limite e subtags; na tela Subtags, cada tag tem o próprio botão "+ Subtag". Arquivadas vão para o fim, apagadas.
+- **Excluir tag/subtag:** além de arquivar. Lançamentos e recorrentes com ela ficam "Sem tag" (dos dois, pois a tag é compartilhada); subtags dela e limites dela são apagados. Pede confirmação mostrando o que será afetado.
+- **Aba Orçamento:** renda base = o que já entrou no mês. Compara a soma dos limites das tags de gasto com essa renda ("cabe" / "passa R$ X"). Limites são editados ali (saíram do formulário de tag). Tags usadas só com receitas nos últimos 12 meses ficam em "Metas de receita" e não entram na soma. A tela Mês mantém o cartão resumido com o botão "Planejar".
+- **Gasto extraordinário:** marcação no lançamento de gasto. Conta no que saiu e na sobra real, mas fica fora da barra da tag; aparece como "+ R$ X extraordinário". Em compra parcelada, vale para todas as parcelas.
+- **Vírgula automática:** nos campos de dinheiro, os dígitos entram pela direita (4890 → 48,90). Valor colado é lido como está escrito (1.500 → 1.500,00).
+
+## Ajustes de 08/11 (2)
+- **Aba Subtags removida:** cada bloco da aba Tags lista as subtags dela, com editar, arquivar e excluir, e um botão "+ Subtag" que já abre com a tag escolhida. Editar uma subtag permite trocá-la de tag.
+
+## Ajustes de 08/11 (3)
+- **Valor de cada parcela:** no crédito com mais de uma parcela, aparece a lista das parcelas com a data da fatura de cada uma e o valor, já dividido igual. Mudar uma parcela atualiza o total; mudar o total volta a dividir igual. Parcela vazia impede salvar.
+
+## Ajustes de 12/11
+- **Orçamento por tag soma todo dinheiro que saiu:** gasto, investimento e doação lançados numa tag contam na barra dela (tela Mês e aba Orçamento). Os totais do topo (Entrou, Saiu, Investido, Doações, Livre) e o "Gasto até agora" continuam separados.
+
+## Ajustes de 12/11 (2)
+- **Filtros da lista do Mês:** resumo do que está filtrado (quantos lançamentos, quanto saiu e quanto entrou); ordenar por data da compra (recentes ou antigos) ou por valor (maior ou menor); em "Mais filtros", data da compra de/até e valor mínimo/máximo; botão "Limpar". O filtro de data usa a data da compra, não o dia em que conta na fatura.
+
+## Ajustes de 12/11 (3)
+- **Livre planejado × Saldo atual:** o antigo "Livre" virou "Livre planejado" (mês inteiro, inclusive o que ainda vai cair). Novo cartão "Saldo atual" (só no mês corrente): entrou − saiu − investido − doado de tudo que já aconteceu até hoje, somando conta e dinheiro vivo; no crédito vale o dia da fatura. Como o saldo do mês anterior é lançado como receita, ele fica igual ao saldo real.
+
+## Ajustes de 12/11 (4)
+- **Tag de investimento fica verde ao passar do limite:** vale para a tag-mãe que só tem lançamentos do tipo Investimento (no mês, na tela Mês; nos últimos 12 meses, na aba Orçamento). Ela não fica laranja aos 80%; ao chegar ou passar do limite, a barra e o texto ficam verdes.
+
+## Ajustes de 13/11
+- **Extraordinário parcial:** ao marcar "Gasto extraordinário", aparece "Quanto disso é extraordinário" (vem com o total). Só essa parte fica fora do orçamento; o resto conta na barra da tag. No parcelado, a parte é dividida entre as parcelas na proporção de cada uma. Precisa da migracao-004. Sem ela, marcar o lançamento inteiro continua funcionando.
+
+## Ajustes de 20/11
+- **Criar tag ou subtag dentro do lançamento:** no seletor de Tag há "+ Nova tag…" e no de Subtag, "+ Nova subtag…" (o campo de subtag aparece para qualquer tag escolhida). Abre um painel no próprio formulário, com nome, as mesmas cores, "Outra cor" e ícones da aba Tags; ao criar, volta ao lançamento com tudo preservado e a tag nova selecionada. Vale também no formulário de recorrente. Esc e "Voltar" só fecham o painel. Editar, arquivar e excluir continuam na aba Tags.
+
+## Ajustes de 20/11 (2)
+- **App instalável (PWA):** nome "Controle de Finanças Pessoais", curto "Finanças pessoais", ícone de moeda caramelo com "R$" no fundo café. O service worker busca a página sempre da internet primeiro (para pegar versões novas) e guarda uma cópia para abrir sem conexão; ícones, fontes e bibliotecas vêm da cópia guardada; dados do Supabase nunca passam pelo cache.
+
 ## Tags e orçamento
 - **Só um nível de subtag.** Uma tag que tem subtags não pode virar subtag.
 - **Limite mensal** fica no formulário da tag principal. Apagar o valor remove o limite.

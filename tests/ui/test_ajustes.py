@@ -4,27 +4,6 @@ def tx(owner, kind, valor, comp, tag=None, pag='pix'):
     return dict(owner_id=owner, kind=kind, amount_cents=valor, description=kind, purchase_date=comp,
                 competence_date=comp, tag_id=tag, payment=pag if kind in ('gasto', 'doacao') else None)
 
-class Nome(UITest):
-    def test_outra_pessoa_aparece_pelo_primeiro_nome(self):
-        self.login()
-        self.assertEqual(self.page.inner_text('#tela-mes [data-ver="ela"]'), 'Denise')
-        self.assertNotIn('denise.teixeira', self.page.inner_text('body'))
-        self.seed('transactions', [tx('u2', 'gasto', 100, '2026-11-03')])
-        self.go('metas'); self.go('mes')
-        self.page.click('#tela-mes [data-ver="juntos"]'); self.pronto()
-        self.assertIn('Denise', self.page.inner_text('#lista-mes'))
-        self.assertNotIn('denise.teixeira', self.page.inner_text('#lista-mes'))
-
-class Metas(UITest):
-    def test_nao_cria_meta_na_visao_da_outra_pessoa(self):
-        self.login(); self.go('metas')
-        self.assertTrue(self.page.is_visible('#meta-nova'))
-        self.page.click('#tela-metas [data-ver="ela"]'); self.pronto()
-        self.assertFalse(self.page.is_visible('#meta-nova'))
-        self.assertIn('Denise ainda não tem metas', self.page.inner_text('#lista-metas'))
-        self.page.click('#tela-metas [data-ver="eu"]'); self.pronto()
-        self.assertTrue(self.page.is_visible('#meta-nova'))
-
 class Doacoes(UITest):
     def test_lancar_doacao(self):
         self.login()
@@ -77,43 +56,44 @@ class Subtags(UITest):
         self.assertEqual(self.page.locator('#tag-mae').count(), 0)
         self.assertNotIn('subtag', self.page.inner_text('#modal').lower())
 
-    def test_criar_subtag_na_tela_propria(self):
+    def test_sem_aba_de_subtags_no_menu(self):
+        self.login(); self.page.click('#menu-botao')
+        self.assertEqual(self.page.locator('[data-tela="subtags"]').count(), 0)
+        self.assertEqual(self.page.locator('#tela-subtags').count(), 0)
+
+    def test_criar_subtag_dentro_do_bloco_da_tag(self):
         self.login(); self.go('tags'); self.criar_tag('Alimentação')
-        self.go('subtags')
         p = self.page
-        p.click('#subtag-nova'); p.fill('#subtag-nome', 'Mercado'); p.select_option('#subtag-tag', label='Alimentação')
+        self.nova_subtag('Alimentação')
+        self.assertEqual(p.input_value('#subtag-tag'), next(t for t in self.db('tags') if t['name'] == 'Alimentação')['id'])
+        p.fill('#subtag-nome', 'Mercado')
         p.click('.paleta [data-cor="#D4A373"]'); p.click('.icones [data-icone="shopping-cart"]')
         p.click('#subtag-salvar'); p.wait_for_selector('#modal-fundo', state='hidden'); self.pronto()
         sub = next(t for t in self.db('tags') if t['name'] == 'Mercado')
         mae = next(t for t in self.db('tags') if t['name'] == 'Alimentação')
         self.assertEqual((sub['parent_id'], sub['color'], sub['icon']), (mae['id'], '#D4A373', 'shopping-cart'))
-        grupo = p.locator('#lista-subtags .grupo-subtag', has_text='Alimentação')
-        self.assertIn('Mercado', grupo.inner_text())
-        self.go('tags')
-        self.assertNotIn('Mercado', p.inner_text('#lista-tags').split('subtag')[0] if False else ' '.join(p.locator('#lista-tags .tag-linha .tag-nome').all_inner_texts()))
-        self.assertIn('1 subtag', p.inner_text('#lista-tags'))
+        self.assertIn('Mercado', self.bloco('Alimentação').inner_text())
+        self.assertNotIn('Mercado', ' '.join(p.locator('#lista-tags .bloco-topo .tag-nome').all_inner_texts()))
+        self.assertTrue(self.page.is_visible('#tela-tags'))
 
-    def test_subtag_exige_tag(self):
-        self.login(); self.go('tags'); self.criar_tag('Lazer'); self.go('subtags')
+    def test_subtag_exige_nome(self):
+        self.login(); self.go('tags'); self.criar_tag('Lazer')
+        self.nova_subtag('Lazer'); self.page.click('#subtag-salvar')
+        self.assertIn('Dê um nome', self.page.inner_text('#subtag-erro'))
+
+    def test_editar_trocar_de_tag_e_arquivar_subtag(self):
+        self.login(); self.go('tags'); self.criar_tag('Casa'); self.criar_tag('Carro')
         p = self.page
-        p.click('#subtag-nova'); p.fill('#subtag-nome', 'Cinema'); p.click('#subtag-salvar')
-        self.assertIn('Escolha a tag', p.inner_text('#subtag-erro'))
-
-    def test_sem_tags_pede_para_criar_primeiro(self):
-        self.login(); self.go('subtags')
-        self.assertIn('Crie uma tag primeiro', self.page.inner_text('#tela-subtags'))
-
-    def test_editar_e_arquivar_subtag(self):
-        self.login(); self.go('tags'); self.criar_tag('Casa'); self.criar_tag('Carro'); self.go('subtags')
-        p = self.page
-        p.click('#subtag-nova'); p.fill('#subtag-nome', 'Luz'); p.select_option('#subtag-tag', label='Casa')
+        self.nova_subtag('Casa'); p.fill('#subtag-nome', 'Luz')
         p.click('#subtag-salvar'); p.wait_for_selector('#modal-fundo', state='hidden'); self.pronto()
-        p.locator('#lista-subtags .tag-linha', has_text='Luz').locator('.tag-editar').click()
+        self.linha_sub('Luz').locator('.tag-editar').click()
+        self.assertTrue(p.is_visible('#subtag-nome'))
         p.select_option('#subtag-tag', label='Carro'); p.click('#subtag-salvar')
         p.wait_for_selector('#modal-fundo', state='hidden'); self.pronto()
         carro = next(t for t in self.db('tags') if t['name'] == 'Carro')
         self.assertEqual(next(t for t in self.db('tags') if t['name'] == 'Luz')['parent_id'], carro['id'])
-        p.locator('#lista-subtags .tag-linha', has_text='Luz').locator('.tag-arquivar').click(); self.pronto()
+        self.assertIn('Luz', self.bloco('Carro').inner_text())
+        self.linha_sub('Luz').locator('.tag-arquivar').click(); self.pronto()
         self.assertTrue(next(t for t in self.db('tags') if t['name'] == 'Luz')['archived'])
 
 class Graficos(UITest):
@@ -165,28 +145,6 @@ class Graficos(UITest):
         o = self.opcoes('graf-comparativo')
         self.assertEqual(o['data'][0], [1100, 1500])
         self.assertIn('ano inteiro', self.page.inner_text('#titulo-comparativo'))
-
-class SoLeituraDaOutra(UITest):
-    def test_sem_novo_lancamento_na_visao_da_outra_pessoa(self):
-        self.login()
-        self.assertTrue(self.page.is_visible('#novo-lancamento'))
-        self.page.click('#tela-mes [data-ver="ela"]'); self.pronto()
-        self.assertFalse(self.page.is_visible('#novo-lancamento'))
-        self.page.click('#tela-mes [data-ver="juntos"]'); self.pronto()
-        self.assertTrue(self.page.is_visible('#novo-lancamento'))
-        self.page.click('#tela-mes [data-ver="ela"]'); self.pronto()
-        self.go('metas'); self.go('mes')
-        self.assertFalse(self.page.is_visible('#novo-lancamento'))
-
-    def test_denise_tambem_nao_lanca_nem_cria_meta_para_o_matheus(self):
-        self.login('ela@x.com', 'senha456')
-        self.assertEqual(self.page.inner_text('#tela-mes [data-ver="ela"]'), 'Matheus')
-        self.assertEqual(self.page.inner_text('#cabecalho-usuario'), 'Denise')
-        self.page.click('#tela-mes [data-ver="ela"]'); self.pronto()
-        self.assertFalse(self.page.is_visible('#novo-lancamento'))
-        self.go('metas')
-        self.assertFalse(self.page.is_visible('#meta-nova'))
-        self.assertIn('Matheus ainda não tem metas', self.page.inner_text('#lista-metas'))
 
 class Chave(UITest):
     def test_chave_publica_ja_vem_no_arquivo(self):

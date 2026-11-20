@@ -62,6 +62,17 @@ class UITest(unittest.TestCase):
     def pronto(self):
         self.page.wait_for_selector('body:not([data-carregando])', state='attached')
 
+    def bloco(self, nome_tag):
+        # Bloco de uma tag principal na aba Tags (o nome está no topo do bloco).
+        return self.page.locator('#lista-tags .bloco').filter(has=self.page.locator('.bloco-topo .tag-nome', has_text=nome_tag))
+
+    def linha_sub(self, nome_sub):
+        return self.page.locator('#lista-tags .sub-linha', has_text=nome_sub)
+
+    def nova_subtag(self, nome_tag):
+        self.bloco(nome_tag).locator('.bloco-nova-sub').click()
+        self.page.wait_for_selector('#subtag-nome')
+
     def seed(self, table, rows):
         self.page.evaluate('([t, r]) => window.__memSeed(t, r)', [table, rows])
 

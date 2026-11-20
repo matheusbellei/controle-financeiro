@@ -14,7 +14,7 @@ create table public.tags (
   name       text not null,
   color      text not null default '#6F4E37',
   icon       text not null default 'tag',
-  parent_id  uuid references public.tags(id),
+  parent_id  uuid references public.tags(id) on delete cascade,
   archived   boolean not null default false,
   created_by uuid not null default auth.uid() references auth.users(id)
 );
@@ -25,7 +25,7 @@ create table public.recurrences (
   kind          text not null check (kind in ('gasto','receita','investimento','doacao')),
   amount_cents  bigint not null,
   description   text not null default '',
-  tag_id        uuid references public.tags(id),
+  tag_id        uuid references public.tags(id) on delete set null,
   payment       text check (payment in ('pix','debito','credito','dinheiro')),
   day_of_month  int not null check (day_of_month between 1 and 31),
   start_month   date not null,
@@ -41,12 +41,14 @@ create table public.transactions (
   description       text not null default '',
   purchase_date     date not null,
   competence_date   date not null,
-  tag_id            uuid references public.tags(id),
+  tag_id            uuid references public.tags(id) on delete set null,
   payment           text check (payment in ('pix','debito','credito','dinheiro')),
   installment_group uuid,
   installment_n     int,
   installment_total int,
   recurrence_id     uuid references public.recurrences(id) on delete set null,
+  extraordinario    boolean not null default false,
+  extraordinario_cents bigint check (extraordinario_cents >= 0), -- parte extraordinária (vazio = o valor inteiro)
   created_at        timestamptz not null default now(),
   -- 1º dia do mês de competência; impede o mesmo recorrente duas vezes no mesmo mês.
   competence_month  date generated always as (competence_date - (extract(day from competence_date)::int - 1)) stored,
@@ -58,7 +60,7 @@ create index transactions_group_idx on public.transactions (installment_group);
 create table public.budgets (
   id            uuid primary key default gen_random_uuid(),
   owner_id      uuid not null default auth.uid() references auth.users(id),
-  tag_id        uuid not null references public.tags(id),
+  tag_id        uuid not null references public.tags(id) on delete cascade,
   monthly_cents bigint not null check (monthly_cents >= 0),
   unique (owner_id, tag_id)
 );
@@ -96,7 +98,7 @@ create trigger on_auth_user_created
 
 grant usage on schema public to authenticated;
 grant select, update on public.profiles to authenticated;
-grant select, insert, update on public.tags to authenticated;
+grant select, insert, update, delete on public.tags to authenticated;
 grant select, insert, update, delete on
   public.transactions, public.recurrences, public.budgets, public.goals, public.goal_deposits
   to authenticated;
@@ -116,10 +118,11 @@ create policy "ver perfis" on public.profiles for select to authenticated using 
 create policy "editar meu perfil" on public.profiles for update to authenticated
   using (id = (select auth.uid())) with check (id = (select auth.uid()));
 
--- Tags: lista compartilhada — os dois veem, criam e editam. Não se excluem (arquivam).
+-- Tags: lista compartilhada — os dois veem, criam, editam, arquivam e excluem.
 create policy "ver tags" on public.tags for select to authenticated using (true);
 create policy "criar tags" on public.tags for insert to authenticated with check (true);
 create policy "editar tags" on public.tags for update to authenticated using (true) with check (true);
+create policy "excluir tags" on public.tags for delete to authenticated using (true);
 
 -- Dados pessoais: todos os logados veem; só o dono grava, edita e exclui.
 -- Lançamentos só podem apontar para recorrentes próprios; valores guardados, só para metas próprias.

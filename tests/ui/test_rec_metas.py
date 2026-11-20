@@ -98,14 +98,12 @@ class Metas(UITest):
         self.page.click('#meta-excluir-confirmar'); self.page.wait_for_selector('#modal-fundo', state='hidden'); self.pronto()
         self.assertEqual(self.db('goals'), []); self.assertEqual(self.db('goal_deposits'), [])
 
-    def test_meta_da_outra_pessoa_so_leitura(self):
+    def test_meta_da_outra_pessoa_nao_aparece(self):
         self.login()
         self.seed('goals', [dict(owner_id='u2', name='Curso', target_cents=200000, deadline='2027-03-01')])
         self.go('metas')
-        self.page.click('#tela-metas [data-ver="ela"]'); self.pronto()
-        meta = self.page.locator('#lista-metas .meta', has_text='Curso')
-        self.assertEqual(meta.count(), 1)
-        self.assertEqual(meta.locator('.meta-guardar, .meta-excluir').count(), 0)
+        self.assertNotIn('Curso', self.page.inner_text('#lista-metas'))
+        self.assertTrue(self.page.is_visible('#meta-nova'))
 
     def test_alvo_obrigatorio(self):
         self.login(); self.go('metas')

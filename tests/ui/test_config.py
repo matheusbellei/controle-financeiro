@@ -33,7 +33,7 @@ class Config(UITest):
         self.assertEqual(nome, 'financas-2026-11-02.json')
         data = json.loads(path.read_text())
         self.assertEqual(data['app'], 'controle-financas-pessoais')
-        self.assertEqual(len(data['tabelas']['transactions']), 2)
+        self.assertEqual(len(data['tabelas']['transactions']), 1)  # só os meus
         for t in ['tags', 'transactions', 'recurrences', 'budgets', 'goals', 'goal_deposits', 'profiles']:
             self.assertIn(t, data['tabelas'])
 
@@ -44,7 +44,7 @@ class Config(UITest):
         linhas = path.read_text(encoding='utf-8-sig').strip().splitlines()
         self.assertEqual(linhas[0], 'data;competencia;pessoa;tipo;valor;descricao;tag;pagamento')
         self.assertIn('05/11/2026;05/11/2026;Matheus;Gasto;1500,00;"Aluguel; nov";Moradia;Pix', linhas)
-        self.assertEqual(len(linhas), 3)
+        self.assertEqual(len(linhas), 2)  # cabeçalho + o meu
 
     def test_importar_restaura_so_o_que_falta(self):
         self.preparar()

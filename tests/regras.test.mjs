@@ -218,3 +218,81 @@ test('soma de valores por ano para qualquer medida', () => {
 test('acumulado mês a mês', () => {
   deq(R.acumular([1, 2, 0, 5]), [1, 3, 3, 8]);
 });
+
+test('extraordinários ficam fora da soma do orçamento', () => {
+  const txs = [{ kind: 'gasto', amount_cents: 8000, tag_id: 'est' },
+    { kind: 'gasto', amount_cents: 1500000, tag_id: 'est', extraordinario: true }];
+  const o = R.orcamentoPorTag(txs, [{ id: 'est', parent_id: null }]);
+  assert.equal(o.comuns.get('est'), 8000);
+  assert.equal(o.extras.get('est'), 1500000);
+});
+test('valor digitado vira moeda com vírgula automática', () => {
+  assert.equal(R.mascaraDigitos('4890'), '48,90');
+  assert.equal(R.mascaraDigitos('5'), '0,05');
+  assert.equal(R.mascaraDigitos('150000'), '1.500,00');
+  assert.equal(R.mascaraDigitos(''), '');
+  assert.equal(R.mascaraDigitos('-20000'), '-200,00');
+});
+
+test('parcelas com valores escolhidos: cada uma com o seu valor', () => {
+  const p = R.splitInstallments(32000, 3, '2026-10-28', null, [10000, 12000, 10000]);
+  deq(p.map((x) => x.amount_cents), [10000, 12000, 10000]);
+  deq(p.map((x) => x.competence_date), ['2026-11-10', '2026-12-10', '2027-01-10']);
+});
+
+test('orçamento soma todo dinheiro que saiu: gasto, investimento e doação', () => {
+  const tags = [{ id: 'inv', parent_id: null }, { id: 'rv', parent_id: 'inv' }, { id: 'igr', parent_id: null }];
+  const o = R.orcamentoPorTag([
+    { kind: 'investimento', amount_cents: 60000, tag_id: 'rv' },
+    { kind: 'doacao', amount_cents: 5000, tag_id: 'igr' },
+    { kind: 'receita', amount_cents: 99999, tag_id: 'inv' }], tags);
+  assert.equal(o.comuns.get('inv'), 60000);
+  assert.equal(o.comuns.get('igr'), 5000);
+});
+
+test('saldo atual: só o que já aconteceu (inclui dinheiro vivo; crédito na data da fatura)', () => {
+  const txs = [
+    { kind: 'receita', amount_cents: 100000, competence_date: '2026-11-01' },
+    { kind: 'gasto', amount_cents: 10000, competence_date: '2026-11-01', payment: 'pix' },
+    { kind: 'gasto', amount_cents: 5000, competence_date: '2026-11-01', payment: 'dinheiro' },
+    { kind: 'investimento', amount_cents: 20000, competence_date: '2026-11-02' },
+    { kind: 'gasto', amount_cents: 30000, competence_date: '2026-11-10', payment: 'credito' },
+    { kind: 'receita', amount_cents: 50000, competence_date: '2026-11-20' }];
+  assert.equal(R.saldoAteHoje(txs, '2026-11-02'), 65000);
+  assert.equal(R.saldoAteHoje(txs, '2026-11-10'), 35000);
+});
+
+test('tag de investimento: só tem lançamentos de investimento', () => {
+  const tags = [{ id: 'inv', parent_id: null }, { id: 'rv', parent_id: 'inv' }, { id: 'laz', parent_id: null }, { id: 'mix', parent_id: null }];
+  const s = R.tagsDeInvestimento([
+    { kind: 'investimento', tag_id: 'rv' }, { kind: 'gasto', tag_id: 'laz' },
+    { kind: 'investimento', tag_id: 'mix' }, { kind: 'gasto', tag_id: 'mix' }], tags);
+  deq([...s], ['inv']);
+});
+test('status da barra de investimento: verde ao chegar ou passar do limite, nunca alerta', () => {
+  assert.equal(R.statusBarra(90000, 100000, true), 'ok');
+  assert.equal(R.statusBarra(100000, 100000, true), 'superou');
+  assert.equal(R.statusBarra(120000, 100000, true), 'superou');
+  assert.equal(R.statusBarra(120000, 100000, false), 'estourou');
+});
+
+test('extraordinário parcial: só a parte marcada fica fora do orçamento', () => {
+  const tags = [{ id: 'est', parent_id: null }];
+  const o = R.orcamentoPorTag([
+    { kind: 'gasto', amount_cents: 1550000, tag_id: 'est', extraordinario: true, extraordinario_cents: 1500000 },
+    { kind: 'gasto', amount_cents: 20000, tag_id: 'est', extraordinario: true }], tags);
+  assert.equal(o.comuns.get('est'), 50000);
+  assert.equal(o.extras.get('est'), 1520000);
+});
+test('valor extraordinário de um lançamento', () => {
+  assert.equal(R.valorExtra({ amount_cents: 1000 }), 0);
+  assert.equal(R.valorExtra({ amount_cents: 1000, extraordinario: true }), 1000);
+  assert.equal(R.valorExtra({ amount_cents: 1000, extraordinario: true, extraordinario_cents: 300 }), 300);
+  assert.equal(R.valorExtra({ amount_cents: 1000, extraordinario: false, extraordinario_cents: 300 }), 0);
+});
+test('parte extraordinária dividida entre parcelas na proporção de cada uma', () => {
+  deq(R.dividirExtra([10000, 12000, 10000], 16000), [5000, 6000, 5000]);
+  const p = R.dividirExtra([33334, 33333, 33333], 50000);
+  assert.equal(p.reduce((a, b) => a + b, 0), 50000);
+  p.forEach((v, i) => assert.ok(v <= [33334, 33333, 33333][i]));
+});
