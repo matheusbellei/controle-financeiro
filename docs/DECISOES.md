@@ -78,6 +78,12 @@ Decisões que o Claude tomou por conta própria. Cada item traz o que acontece s
 - **Subtag em tag de outra pessoa:** o banco não impede tecnicamente (a checagem causava recursão nas regras), mas a tela só mostra as suas tags, então isso não acontece pelo app.
 - **Backup:** importar traz as suas tags; backup antigo, sem dono nas tags, também é aceito.
 
+## Ajustes de 20/11 (4)
+- **Ocultar valores:** botão de olho no topo, em todas as telas. Desfoca valores, totais, saldos, lançamentos, resumos e gráficos (o layout não muda). Continuam visíveis os limites de orçamento ("de R$ 800"), a soma dos limites, o "Meu limite" das tags e o alvo das metas. Fica lembrado neste aparelho. Formulários abertos mostram os números normalmente. *Se errado:* a barra do orçamento ainda mostra a proporção gasta, e com o limite visível dá para estimar o gasto.
+
+## Ajustes de 20/11 (5)
+- **"Saiu" soma tudo que saiu:** na tela Mês e na aba Ano, o cartão Saiu = gastos + investido + doações e vem depois de Investido e Doações, para a conta fechar (Entrou − Saiu = Livre). Abaixo dele aparece "só gastos R$ X". Nos cartões de cada mês da aba Ano, o "Saiu" também soma tudo (saiu a linha "Doado"). A aba Orçamento ("Gasto até agora") e os Dashboards continuam contando só gastos.
+
 ## Tags e orçamento
 - **Só um nível de subtag.** Uma tag que tem subtags não pode virar subtag.
 - **Limite mensal** fica no formulário da tag principal. Apagar o valor remove o limite.

@@ -15,7 +15,8 @@ class Doacoes(UITest):
         p.wait_for_selector('#modal-fundo', state='hidden'); self.pronto()
         self.assertEqual(self.db('transactions')[0]['kind'], 'doacao')
         self.assertIn('R$ 50,00', p.inner_text('#resumo-doacoes').replace('\xa0', ' '))
-        self.assertIn('R$ 0,00', p.inner_text('#resumo-saiu').replace('\xa0', ' '))
+        self.assertIn('R$ 50,00', p.inner_text('#resumo-saiu').replace('\xa0', ' '))  # Saiu soma a doação
+        self.assertIn('só gastos R$ 0,00', p.inner_text('#resumo-so-gastos').replace('\xa0', ' '))
         self.assertIn('-R$ 50,00', p.inner_text('#resumo-livre').replace('\xa0', ' '))
         self.assertIn('Igreja', p.inner_text('#lista-mes'))
 
@@ -39,7 +40,7 @@ class Doacoes(UITest):
         self.login()
         self.seed('transactions', [tx('u1', 'doacao', 30000, '2026-11-03')])
         self.go('ano')
-        self.assertIn('Doado R$ 300,00', self.page.inner_text('#grade-ano .mes-ano[data-mes="11"]').replace('\xa0', ' '))
+        self.assertIn('Saiu R$ 300,00', self.page.inner_text('#grade-ano .mes-ano[data-mes="11"]').replace('\xa0', ' '))
         self.go('dashboards')
         c = self.page.evaluate("""() => window.__charts.find((x) => x.__canvas === 'graf-evolucao').data.datasets.map((d) => [d.label, d.data[10]])""")
         self.assertIn(['Doado', 300], c)

@@ -68,6 +68,12 @@ button { cursor: pointer; }
 #cabecalho { position: sticky; top: 0; z-index: 20; background: var(--espresso); color: var(--espuma); display: flex; align-items: center; gap: 8px; padding: 10px 12px; }
 #cabecalho .btn-icone { color: var(--espuma); }
 #cabecalho .btn-icone:hover { background: var(--mocha); }
+#olho { margin-left: auto; }
+.num, .lim { white-space: nowrap; }
+/* Ocultar valores: desfoca números e gráficos, mantém o layout. */
+body.ocultar-valores .num, body.ocultar-valores #resumo-filtro, body.ocultar-valores #app canvas {
+  filter: blur(7px); user-select: none; transition: filter .15s; }
+body.ocultar-valores #app canvas { pointer-events: none; }
 #cabecalho-titulo { font-family: var(--fonte-titulo); font-size: 18px; flex: 1; }
 #menu { position: absolute; top: 100%; left: 0; right: 0; background: var(--espresso); padding: 6px 8px 12px; display: grid; gap: 2px; box-shadow: 0 8px 20px rgba(59,36,22,.25); }
 #menu button { background: none; border: none; color: var(--espuma); text-align: left; padding: 11px 12px; border-radius: 8px; display: flex; gap: 10px; align-items: center; }
@@ -210,6 +216,7 @@ main { max-width: 980px; margin: 0 auto; padding: 14px 16px 110px; }
   <header id="cabecalho">
     <button class="btn-icone" id="menu-botao" aria-label="Abrir menu" aria-expanded="false"><i class="ti ti-menu-2"></i></button>
     <span id="cabecalho-titulo">Controle de Finanças Pessoais</span>
+    <button class="btn-icone" id="olho" aria-label="Ocultar valores" aria-pressed="false" title="Ocultar valores"><i class="ti ti-eye"></i></button>
     <span id="cabecalho-usuario" class="suave" style="color: var(--latte)"></span>
     <nav id="menu" hidden>
       <button data-tela="mes"><i class="ti ti-calendar-month"></i>Mês</button>
@@ -559,6 +566,9 @@ function mascaraDigitos(texto) {
 
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 function formatBRL(cents) { return BRL.format(cents / 100); }
+// Valor na tela: some no modo "ocultar valores". Limites de orçamento e alvos de meta usam brlLim e continuam visíveis.
+function num(cents) { return `<span class="num">${formatBRL(cents)}</span>`; }
+function brlLim(cents) { return `<span class="lim">${formatBRL(cents)}</span>`; }
 function formatDateBR(iso) { return `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`; }
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -818,17 +828,17 @@ TELAS.mes = async function (el) {
   const orc = [...limites.entries()].map(([tag, lim]) => {
     const gasto = gastosTag.get(tag) || 0, entrou = receitasTag.get(tag) || 0;
     const extraTag = extrasTag.get(tag) || 0;
-    const notaExtra = extraTag ? `<div class="suave nota-extra">+ ${formatBRL(extraTag)} extraordinário (fora do orçamento)</div>` : '';
+    const notaExtra = extraTag ? `<div class="suave nota-extra">+ ${num(extraTag)} extraordinário (fora do orçamento)</div>` : '';
     if (entrou > 0 && gasto === 0 && !extraTag) {
       const pct = Math.min(100, Math.round((entrou / lim) * 100));
       return `<div class="orcamento" data-tag="${tag}">
-        <div class="linha-topo"><span>${esc(tagNome(tag))}</span><span class="positivo">Entrou ${formatBRL(entrou)} de ${formatBRL(lim)}</span></div>
+        <div class="linha-topo"><span>${esc(tagNome(tag))}</span><span class="positivo">Entrou ${num(entrou)} de ${brlLim(lim)}</span></div>
         <div class="barra receita"><div style="width:${pct}%"></div></div></div>`;
     }
     const st = statusBarra(gasto, lim, investeMes.has(tag));
     const pct = Math.min(100, Math.round(lim ? (gasto / lim) * 100 : 0));
     return `<div class="orcamento" data-tag="${tag}">
-      <div class="linha-topo"><span>${esc(tagNome(tag))}</span><span class="${classeTextoBarra(st)}">${formatBRL(gasto)} de ${formatBRL(lim)}</span></div>
+      <div class="linha-topo"><span>${esc(tagNome(tag))}</span><span class="${classeTextoBarra(st)}">${num(gasto)} de ${brlLim(lim)}</span></div>
       <div class="barra ${st}"><div style="width:${pct}%"></div></div>${notaExtra}</div>`;
   }).join('');
 
@@ -841,14 +851,15 @@ TELAS.mes = async function (el) {
     </div>
     
     <div class="resumo">
-      <div class="cartao"><div class="rotulo">Entrou</div><div class="valor positivo" id="resumo-entrou">${formatBRL(r.receitas)}</div></div>
-      <div class="cartao"><div class="rotulo">Saiu</div><div class="valor" id="resumo-saiu">${formatBRL(r.gastos)}</div></div>
-      <div class="cartao"><div class="rotulo">Investido</div><div class="valor" id="resumo-investido">${formatBRL(r.investido)}</div></div>
-      <div class="cartao"><div class="rotulo">Doações</div><div class="valor" id="resumo-doacoes">${formatBRL(r.doacoes)}</div></div>
-      <div class="cartao"><div class="rotulo">Livre planejado</div><div class="valor ${r.livre < 0 ? 'negativo' : ''}" id="resumo-livre">${formatBRL(r.livre)}</div>
+      <div class="cartao"><div class="rotulo">Entrou</div><div class="valor positivo" id="resumo-entrou">${num(r.receitas)}</div></div>
+      <div class="cartao"><div class="rotulo">Investido</div><div class="valor" id="resumo-investido">${num(r.investido)}</div></div>
+      <div class="cartao"><div class="rotulo">Doações</div><div class="valor" id="resumo-doacoes">${num(r.doacoes)}</div></div>
+      <div class="cartao"><div class="rotulo">Saiu</div><div class="valor" id="resumo-saiu">${num(r.gastos + r.investido + r.doacoes)}</div>
+        <div class="suave" id="resumo-so-gastos">só gastos ${num(r.gastos)}</div></div>
+      <div class="cartao"><div class="rotulo">Livre planejado</div><div class="valor ${r.livre < 0 ? 'negativo' : ''}" id="resumo-livre">${num(r.livre)}</div>
         <div class="suave">mês inteiro</div></div>
       ${ehMesAtual ? `<div class="cartao destaque-hoje" id="cartao-hoje"><div class="rotulo">Saldo atual</div>
-        <div class="valor ${saldoHoje < 0 ? 'negativo' : ''}" id="resumo-hoje">${formatBRL(saldoHoje)}</div>
+        <div class="valor ${saldoHoje < 0 ? 'negativo' : ''}" id="resumo-hoje">${num(saldoHoje)}</div>
         <div class="suave">até ${formatDateBR(hoje).slice(0, 5)} · conta + dinheiro</div></div>` : ''}
     </div>
     <div class="colunas">
@@ -967,7 +978,7 @@ function itemHTML(t) {
   else det.push(t.tag_id ? `${TIPOS[t.kind]} · ${esc(tagNome(t.tag_id))}` : TIPOS[t.kind]);
   if (t.payment) det.push(PAGAMENTOS[t.payment]);
   if (t.extraordinario) {
-    det.push(valorExtra(t) < t.amount_cents ? `<strong>Extraordinário: ${formatBRL(valorExtra(t))}</strong>` : '<strong>Extraordinário</strong>');
+    det.push(valorExtra(t) < t.amount_cents ? `<strong>Extraordinário: ${num(valorExtra(t))}</strong>` : '<strong>Extraordinário</strong>');
   }
   if (t.installment_total > 1) det.push(`parcela ${t.installment_n}/${t.installment_total}`);
   if (t.payment === 'credito' && t.purchase_date !== t.competence_date) det.push(`compra ${formatDateBR(t.purchase_date).slice(0, 5)}`);
@@ -976,7 +987,7 @@ function itemHTML(t) {
     <div class="icone-tag" style="background:${esc(cor)}"><i class="ti ti-${esc(icone)}"></i></div>
     <div class="meio"><div class="desc">${esc(t.description || TIPOS[t.kind])}${t.recurrence_id ? ' <i class="ti ti-repeat suave" title="Recorrente"></i>' : ''}</div>
       <div class="det">${det.join(' · ')}</div></div>
-    <div class="valor ${sinal}">${formatBRL(t.amount_cents)}</div>
+    <div class="valor ${sinal}">${num(t.amount_cents)}</div>
     ${meu ? `<div class="acoes"><button class="btn-icone editar" aria-label="Editar"><i class="ti ti-pencil"></i></button>
       <button class="btn-icone excluir" aria-label="Excluir"><i class="ti ti-trash"></i></button></div>` : ''}
   </div>`;
@@ -1202,7 +1213,7 @@ function confirmarExclusao(tx) {
          Para não cobrar neste mês, use “Pular este mês”. Para parar de vez, pause ou encerre em Recorrentes.</p>
          <div class="rodape-modal"><button class="btn" id="excluir-cancelar">Cancelar</button>
          <button class="btn btn-principal" id="excluir-pular">Pular este mês</button></div>`
-      : `<p>Excluir “${esc(tx.description || TIPOS[tx.kind])}” de ${formatBRL(tx.amount_cents)}?</p>
+      : `<p>Excluir “${esc(tx.description || TIPOS[tx.kind])}” de ${num(tx.amount_cents)}?</p>
          <div class="rodape-modal"><button class="btn" id="excluir-cancelar">Cancelar</button>
          <button class="btn btn-principal" id="excluir-confirmar">Excluir</button></div>`;
   abrirModal(`<div class="topo"><h2>Excluir lançamento</h2>
@@ -1434,7 +1445,7 @@ TELAS.recorrentes = async function (el) {
     return `<div class="item rec-linha ${r.paused || encerrado ? 'arquivada' : ''}" data-id="${r.id}" style="${r.paused || encerrado ? 'opacity:.6' : ''}">
       <div class="icone-tag" style="background:${esc(tagVisual(r.tag_id).cor)}"><i class="ti ti-repeat"></i></div>
       <div class="meio"><div class="desc">${esc(r.description || TIPOS[r.kind])}</div><div class="det">${det.join(' · ')} · ${status}</div></div>
-      <div class="valor ${r.kind === 'receita' ? 'positivo' : ''}">${formatBRL(r.amount_cents)}</div>
+      <div class="valor ${r.kind === 'receita' ? 'positivo' : ''}">${num(r.amount_cents)}</div>
       <div class="acoes">
         <button class="btn-icone rec-editar" aria-label="Editar"><i class="ti ti-pencil"></i></button>
         <button class="btn-icone rec-pausar" aria-label="${r.paused ? 'Retomar' : 'Pausar'}"><i class="ti ti-player-${r.paused ? 'play' : 'pause'}"></i></button>
@@ -1536,7 +1547,7 @@ TELAS.metas = async function (el) {
         <button class="btn-icone meta-excluir" aria-label="Excluir meta"><i class="ti ti-trash"></i></button></span>`
         : `<span class="suave">${esc(nomePessoa(g.owner_id))}</span>`}</div>
       <div class="barra" style="margin:10px 0 6px"><div style="width:${Math.min(100, pct)}%; background:var(--espresso)"></div></div>
-      <div class="suave">${formatBRL(v)} de ${formatBRL(g.target_cents)}${g.deadline ? ` · até ${mesCurto(g.deadline)}` : ''} · ${pct}%</div>
+      <div class="suave">${num(v)} de ${brlLim(g.target_cents)}${g.deadline ? ` · até ${mesCurto(g.deadline)}` : ''} · ${pct}%</div>
     </div>`;
   }).join('');
   el.innerHTML = `
@@ -1648,10 +1659,10 @@ TELAS.orcamento = async function (el) {
     encaixeTexto = 'Ainda não entrou nada neste mês. O encaixe aparece quando você lançar as receitas.';
   } else if (planejado <= renda) {
     encaixeClasse = 'encaixa';
-    encaixeTexto = `Cabe na renda. Sobra planejada ${formatBRL(renda - planejado)} (${pctRenda(renda - planejado)} do que entrou).`;
+    encaixeTexto = `Cabe na renda. Sobra planejada ${num(renda - planejado)} (${pctRenda(renda - planejado)} do que entrou).`;
   } else {
     encaixeClasse = 'nao-encaixa';
-    encaixeTexto = `Não cabe: os limites passam ${formatBRL(planejado - renda)} do que entrou.`;
+    encaixeTexto = `Não cabe: os limites passam ${num(planejado - renda)} do que entrou.`;
   }
   const escalaBarra = Math.max(renda, planejado, 1);
   const segmentos = despesas.filter((t) => limite.has(t.id)).map((t) =>
@@ -1669,9 +1680,9 @@ TELAS.orcamento = async function (el) {
         <label class="orc-campo"><span class="sr-only">Limite de ${esc(t.name)}</span>
           <input class="orc-limite" data-moeda inputmode="numeric" placeholder="Sem limite" value="${valorCampo(b)}"></label>
       </div>
-      <div class="suave ${st === 'superou' ? 'positivo' : ''}">${lim ? `${pctRenda(lim)} do que entrou · ` : ''}saiu ${formatBRL(gasto)}${lim ? ` de ${formatBRL(lim)}` : ''}</div>
+      <div class="suave ${st === 'superou' ? 'positivo' : ''}">${lim ? `<span class="num">${pctRenda(lim)}</span> do que entrou · ` : ''}saiu ${num(gasto)}${lim ? ` de ${brlLim(lim)}` : ''}</div>
       ${lim ? `<div class="barra ${st}"><div style="width:${pct}%"></div></div>` : ''}
-      ${extra ? `<div class="suave nota-extra">+ ${formatBRL(extra)} extraordinário (fora do orçamento)</div>` : ''}
+      ${extra ? `<div class="suave nota-extra">+ ${num(extra)} extraordinário (fora do orçamento)</div>` : ''}
     </div>`;
   };
   const linhaReceita = (t) => {
@@ -1683,7 +1694,7 @@ TELAS.orcamento = async function (el) {
         <label class="orc-campo"><span class="sr-only">Meta de ${esc(t.name)}</span>
           <input class="orc-limite" data-moeda inputmode="numeric" placeholder="Sem meta" value="${valorCampo(b)}"></label>
       </div>
-      <div class="suave positivo">Entrou ${formatBRL(entrou)}${lim ? ` de ${formatBRL(lim)}` : ''}</div>
+      <div class="suave positivo">Entrou ${num(entrou)}${lim ? ` de ${brlLim(lim)}` : ''}</div>
       ${lim ? `<div class="barra receita"><div style="width:${Math.min(100, Math.round((entrou / lim) * 100))}%"></div></div>` : ''}
     </div>`;
   };
@@ -1695,20 +1706,20 @@ TELAS.orcamento = async function (el) {
       <button class="btn-icone" id="orc-seguinte" aria-label="Próximo mês"><i class="ti ti-chevron-right"></i></button>
     </div>
     <div class="resumo">
-      <div class="cartao" id="orc-renda"><div class="rotulo">Entrou no mês</div><div class="valor positivo">${formatBRL(renda)}</div></div>
+      <div class="cartao" id="orc-renda"><div class="rotulo">Entrou no mês</div><div class="valor positivo">${num(renda)}</div></div>
       <div class="cartao" id="orc-planejado"><div class="rotulo">Limites planejados</div><div class="valor">${formatBRL(planejado)}</div>
         <div class="suave">${pctRenda(planejado)} do que entrou</div></div>
-      <div class="cartao" id="orc-gasto"><div class="rotulo">Gasto até agora</div><div class="valor">${formatBRL(gastoComum)}</div>
+      <div class="cartao" id="orc-gasto"><div class="rotulo">Gasto até agora</div><div class="valor">${num(gastoComum)}</div>
         <div class="suave">sem extraordinários</div></div>
       <div class="cartao" id="orc-real"><div class="rotulo">Sobra real do mês</div>
-        <div class="valor ${resumo.livre < 0 ? 'negativo' : ''}">${formatBRL(resumo.livre)}</div>
+        <div class="valor ${resumo.livre < 0 ? 'negativo' : ''}">${num(resumo.livre)}</div>
         <div class="suave">entrou − saiu − investido − doado</div></div>
     </div>
     <div class="cartao ${encaixeClasse}" id="orc-encaixe">
       <h2>Os limites cabem no que entrou?</h2>
       <p style="margin:6px 0">${encaixeTexto}</p>
       ${renda > 0 && segmentos ? `<div class="barra-empilhada">${segmentos}</div>` : ''}
-      ${totalExtra ? `<p class="suave" style="margin:8px 0 0">Extraordinários do mês: ${formatBRL(totalExtra)} (fora do orçamento, mas contam na sobra real).</p>` : ''}
+      ${totalExtra ? `<p class="suave" style="margin:8px 0 0">Extraordinários do mês: ${num(totalExtra)} (fora do orçamento, mas contam na sobra real).</p>` : ''}
     </div>
     <div class="colunas">
       <div class="cartao"><h2>Limites por tag</h2>
@@ -1815,10 +1826,10 @@ TELAS.dashboards = async function (el) {
           ${formatos('f-tag-formato', F.tag.formato, [['barras', 'Barras'], ['rosca', 'Rosca']])}
         </div>
         <p class="suave" style="margin:8px 0">${F.tag.periodo === 'ano' ? `Em ${F.tag.ano}` : `${MESES[F.tag.mes - 1]} ${F.tag.ano}`}:
-          <strong id="dash-total-gasto">${formatBRL(totalGasto)}</strong></p>
+          <strong id="dash-total-gasto">${num(totalGasto)}</strong></p>
         <div class="grafico" style="height:${F.tag.formato === 'rosca' ? 260 : Math.max(160, porTag.length * 36)}px"><canvas id="graf-tag"></canvas></div>
         <div class="chips" style="margin-top:10px">${porTag.map(([k, v]) =>
-          `<button class="chip dash-tag ${k === aberta ? 'ativo' : ''}" data-tag="${k}">${esc(k === 'sem-tag' ? 'Sem tag' : tagNome(k))} · ${formatBRL(v)}</button>`).join('')}</div>
+          `<button class="chip dash-tag ${k === aberta ? 'ativo' : ''}" data-tag="${k}">${esc(k === 'sem-tag' ? 'Sem tag' : tagNome(k))} · ${num(v)}</button>`).join('')}</div>
         ${semTags ? '<p class="vazio">Crie tags em Tags para ver aqui para onde vai o dinheiro.</p>'
           : totalGasto === 0 ? '<p class="suave">Nenhum gasto neste período ainda.</p>'
           : '<p class="suave">Toque numa tag para ver as subtags.</p>'}
@@ -1849,7 +1860,7 @@ TELAS.dashboards = async function (el) {
             ${selectHTML('f-ap-modo', [['mensal', 'Por mês'], ['acumulado', 'Acumulado no ano']], F.ap.modo, 'Como mostrar')}
             ${formatos('f-ap-formato', F.ap.formato, [['barras', 'Barras'], ['linhas', 'Linhas']])}
           </div>
-          <p class="suave" style="margin:8px 0 4px">Total aportado em ${F.ap.ano}</p><div class="destaque" id="aportes-total">${formatBRL(aporteAno)}</div>
+          <p class="suave" style="margin:8px 0 4px">Total aportado em ${F.ap.ano}</p><div class="destaque" id="aportes-total">${num(aporteAno)}</div>
           <div class="grafico" style="height:180px"><canvas id="graf-aportes"></canvas></div></div>
       </div>
     </div>`;
@@ -1922,20 +1933,20 @@ TELAS.ano = async function (el) {
     </div>
     
     <div class="resumo">
-      <div class="cartao"><div class="rotulo">Entrou no ano</div><div class="valor positivo">${formatBRL(total.receitas)}</div></div>
-      <div class="cartao"><div class="rotulo">Saiu no ano</div><div class="valor">${formatBRL(total.gastos)}</div></div>
-      <div class="cartao"><div class="rotulo">Investido no ano</div><div class="valor">${formatBRL(total.investido)}</div></div>
-      <div class="cartao"><div class="rotulo">Doado no ano</div><div class="valor">${formatBRL(total.doacoes)}</div></div>
-      <div class="cartao livre"><div class="rotulo">Livre no ano</div><div class="valor ${total.livre < 0 ? 'negativo' : ''}">${formatBRL(total.livre)}</div></div>
+      <div class="cartao"><div class="rotulo">Entrou no ano</div><div class="valor positivo">${num(total.receitas)}</div></div>
+      <div class="cartao"><div class="rotulo">Investido no ano</div><div class="valor">${num(total.investido)}</div></div>
+      <div class="cartao"><div class="rotulo">Doado no ano</div><div class="valor">${num(total.doacoes)}</div></div>
+      <div class="cartao"><div class="rotulo">Saiu no ano</div><div class="valor" id="ano-saiu">${num(total.gastos + total.investido + total.doacoes)}</div>
+        <div class="suave">só gastos ${num(total.gastos)}</div></div>
+      <div class="cartao livre"><div class="rotulo">Livre no ano</div><div class="valor ${total.livre < 0 ? 'negativo' : ''}">${num(total.livre)}</div></div>
     </div>
     <div class="grade" id="grade-ano">${serie.map((m) => {
       const livre = m.receitas - m.gastos - m.investido - m.doacoes;
       return `<button class="cartao mes-ano" data-mes="${m.mes}" style="text-align:left">
         <h3>${MESES[m.mes - 1]}</h3>
-        <div class="suave">Entrou <span class="positivo">${formatBRL(m.receitas)}</span></div>
-        <div class="suave">Saiu ${formatBRL(m.gastos)}</div>
-        ${m.doacoes ? `<div class="suave">Doado ${formatBRL(m.doacoes)}</div>` : ''}
-        <div><strong class="${livre < 0 ? 'negativo' : ''}">Livre ${formatBRL(livre)}</strong></div></button>`;
+        <div class="suave">Entrou <span class="positivo">${num(m.receitas)}</span></div>
+        <div class="suave">Saiu ${num(m.gastos + m.investido + m.doacoes)}</div>
+        <div><strong class="${livre < 0 ? 'negativo' : ''}">Livre ${num(livre)}</strong></div></button>`;
     }).join('')}</div>`;
   $('#ano-anterior', el).addEventListener('click', () => { state.year -= 1; router.go('ano'); });
   $('#ano-seguinte', el).addEventListener('click', () => { state.year += 1; router.go('ano'); });
@@ -2042,6 +2053,17 @@ async function importarBackup(tabelas) {
   return r;
 }
 
+// ---------- ocultar valores (para mostrar o app a alguém) ----------
+function lerOcultar() { try { return localStorage.getItem('ocultar-valores') === '1'; } catch (e) { return false; } }
+function aplicarOcultar(ligar) {
+  document.body.classList.toggle('ocultar-valores', ligar);
+  const b = $('#olho');
+  b.setAttribute('aria-pressed', String(ligar));
+  b.setAttribute('aria-label', ligar ? 'Mostrar valores' : 'Ocultar valores');
+  b.title = b.getAttribute('aria-label');
+  b.innerHTML = `<i class="ti ${ligar ? 'ti-eye-off' : 'ti-eye'}"></i>`;
+}
+
 // ---------- login e menu ----------
 function mostrarLogin() {
   $('#app').hidden = true;
@@ -2068,6 +2090,12 @@ function ligarCasca() {
     try { await entrouNoApp(await store.signIn(email, senha)); }
     catch (e) { $('#login-erro').textContent = e.message; }
     finally { $('#login-entrar').disabled = false; }
+  });
+  aplicarOcultar(lerOcultar());
+  $('#olho').addEventListener('click', () => {
+    const ligar = !document.body.classList.contains('ocultar-valores');
+    aplicarOcultar(ligar);
+    try { localStorage.setItem('ocultar-valores', ligar ? '1' : '0'); } catch (e) { /* ignora */ }
   });
   $('#menu-botao').addEventListener('click', () => {
     const menu = $('#menu');

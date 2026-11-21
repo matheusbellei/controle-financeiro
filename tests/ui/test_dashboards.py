@@ -75,13 +75,13 @@ class Dash(UITest):
         self.preparar(); self.go('dashboards')
         dash = self.page.inner_text('#dash-total-gasto')
         self.go('mes')
-        self.assertEqual(dash, self.page.inner_text('#resumo-saiu'))
+        self.assertEqual('só gastos ' + dash, self.page.inner_text('#resumo-so-gastos'))
 
     def test_ano_mostra_12_meses_e_abre_o_mes(self):
         self.preparar(); self.go('ano')
         self.assertEqual(self.page.locator('#grade-ano .mes-ano').count(), 12)
         nov = self.page.inner_text('#grade-ano .mes-ano[data-mes="11"]').replace('\xa0', ' ')
-        self.assertIn('R$ 6.000,00', nov); self.assertIn('R$ 2.200,00', nov); self.assertIn('R$ 3.000,00', nov)
+        self.assertIn('R$ 6.000,00', nov); self.assertIn('Saiu R$ 3.000,00', nov); self.assertIn('Livre R$ 3.000,00', nov)
         self.page.click('#grade-ano .mes-ano[data-mes="3"]'); self.page.wait_for_selector('#tela-mes', state='visible'); self.pronto()
         self.assertIn('Março 2026', self.page.inner_text('#mes-titulo'))
 

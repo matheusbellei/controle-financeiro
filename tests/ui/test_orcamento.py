@@ -181,7 +181,7 @@ class InvestimentoNoOrcamento(UITest):
     def test_totais_do_topo_continuam_separados(self):
         self.test_investimento_conta_na_barra_da_tag()
         self.go('mes')
-        self.assertIn('R$ 0,00', self.page.inner_text('#resumo-saiu').replace('\xa0', ' '))
+        self.assertIn('só gastos R$ 0,00', self.page.inner_text('#resumo-so-gastos').replace('\xa0', ' '))
         self.assertIn('R$ 600,00', self.page.inner_text('#resumo-investido').replace('\xa0', ' '))
         self.go('orcamento')
         self.assertIn('R$ 0,00', self.page.inner_text('#orc-gasto').replace('\xa0', ' '))
