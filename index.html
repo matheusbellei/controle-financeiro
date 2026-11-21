@@ -627,7 +627,7 @@ const state = {
 function hojeMes() { const t = todayISO(); state.year = Number(t.slice(0, 4)); state.month = Number(t.slice(5, 7)); }
 function mesISO(y = state.year, m = state.month) { return `${y}-${String(m).padStart(2, '0')}-01`; }
 function nomePessoa(id) { const p = state.people.find((x) => x.id === id); return p ? (primeiroNome(p.name) || p.name) : 'Outra pessoa'; }
-// Cada pessoa vê só os próprios dados (tags e subtags são compartilhadas).
+// Cada pessoa vê só os próprios dados, inclusive tags e subtags (o banco também garante isso).
 function filtrarDono(rows) { return rows.filter((r) => r.owner_id === state.user.id); }
 async function carregarBase() {
   const [tags, people] = await Promise.all([store.list('tags'), store.list('profiles')]);
@@ -1288,7 +1288,7 @@ TELAS.tags = async function (el) {
     </div>`;
   }).join('');
   el.innerHTML = `
-    <div class="barra-titulo"><p class="suave" style="margin:0">Tags são as categorias, como Alimentação. Subtags detalham uma tag (Mercado, Restaurante) e somam nela nos gráficos e no orçamento. A lista é compartilhada entre vocês dois.</p>
+    <div class="barra-titulo"><p class="suave" style="margin:0">Tags são as categorias, como Alimentação. Subtags detalham uma tag (Mercado, Restaurante) e somam nela nos gráficos e no orçamento. São só suas: cada conta tem as próprias tags, e mudar as suas não afeta as da outra pessoa.</p>
       <button class="btn btn-principal" id="tag-nova"><i class="ti ti-plus"></i>Nova tag</button></div>
     <div class="blocos" id="lista-tags">${html || '<div class="vazio cartao">Crie a primeira tag, como Moradia ou Alimentação.</div>'}</div>`;
   $$('.bloco-nova-sub', el).forEach((b) => b.addEventListener('click', () => abrirSubtag(null, b.closest('.bloco-tag').dataset.id)));
@@ -1300,14 +1300,14 @@ TELAS.tags = async function (el) {
   ligarArquivar(el, 'tags');
 };
 
-// Excluir de vez: avisa quantas subtags e lançamentos são afetados (de vocês dois, já que a tag é compartilhada).
+// Excluir de vez: avisa quantas subtags e lançamentos seus são afetados (cada um tem as próprias tags).
 async function confirmarExclusaoTag(tag, tela) {
   const subs = state.tags.filter((t) => t.parent_id === tag.id);
   const ids = new Set([tag.id, ...subs.map((t) => t.id)]);
   const lancs = (await tentar(() => store.list('transactions')) || []).filter((t) => ids.has(t.tag_id)).length;
   const partes = [];
   if (subs.length) partes.push(`${subs.length} ${subs.length === 1 ? 'subtag' : 'subtags'} dentro dela também ${subs.length === 1 ? 'será excluída' : 'serão excluídas'}`);
-  partes.push(lancs ? `${lancs} ${lancs === 1 ? 'lançamento fica' : 'lançamentos ficam'} sem tag (de vocês dois)` : 'nenhum lançamento usa essa tag');
+  partes.push(lancs ? `${lancs} ${lancs === 1 ? 'lançamento fica' : 'lançamentos ficam'} sem tag` : 'nenhum lançamento usa essa tag');
   abrirModal(`<div class="topo"><h2>Excluir “${esc(tag.name)}”?</h2></div>
     <p>${partes.join('; ')}. O limite de orçamento dela também sai. Isso não pode ser desfeito.</p>
     <p class="suave">Se quiser só esconder do formulário e manter o histórico, use Arquivar.</p>
@@ -2021,19 +2021,19 @@ TELAS.config = async function (el) {
   });
 };
 
-// Reinsere só o que falta: tags (compartilhadas) e os registros da própria pessoa.
+// Reinsere só o que falta: as tags e os registros da própria pessoa (backup antigo sem dono nas tags também serve).
 async function importarBackup(tabelas) {
   const r = { lanc: 0, jaExistiam: 0, outros: 0 };
   const ordem = ['tags', 'recurrences', 'goals', 'transactions', 'goal_deposits', 'budgets'];
   for (const t of ordem) {
     const vindas = Array.isArray(tabelas[t]) ? tabelas[t] : [];
     const existentes = new Set((await store.list(t)).map((x) => x.id));
-    let faltam = vindas.filter((x) => !existentes.has(x.id) && (t === 'tags' || x.owner_id === state.user.id));
+    let faltam = vindas.filter((x) => !existentes.has(x.id) && (t === 'tags' ? (!x.owner_id || x.owner_id === state.user.id) : x.owner_id === state.user.id));
     if (t === 'tags') faltam = faltam.sort((a, b) => (a.parent_id ? 1 : 0) - (b.parent_id ? 1 : 0)); // mães antes
     if (t === 'transactions') r.jaExistiam += vindas.filter((x) => existentes.has(x.id) && x.owner_id === state.user.id).length;
     for (const linha of faltam) {
       const copia = { ...linha };
-      if (t === 'tags') delete copia.created_by;
+      if (t === 'tags') { delete copia.created_by; delete copia.owner_id; }
       delete copia.competence_month; // coluna calculada pelo banco
       await store.insert(t, copia);
       if (t === 'transactions') r.lanc++; else r.outros++;

@@ -4,7 +4,7 @@
     { id: 'u1', email: 'matheus@x.com', password: 'senha123' },
     { id: 'u2', email: 'ela@x.com', password: 'senha456' },
   ];
-  const OWNED = ['transactions', 'recurrences', 'budgets', 'goals', 'goal_deposits'];
+  const OWNED = ['transactions', 'recurrences', 'budgets', 'goals', 'goal_deposits', 'tags'];
   const db = JSON.parse(sessionStorage.getItem('memdb') || 'null') || {
     profiles: [{ id: 'u1', name: 'Matheus' }, { id: 'u2', name: 'denise.teixeira249@gmail.com' }],
     tags: [], transactions: [], recurrences: [], budgets: [], goals: [], goal_deposits: [],
@@ -16,7 +16,9 @@
   const deny = () => { throw new Error('Você só pode alterar os seus próprios dados.'); };
   const need = () => { if (!user) throw new Error('Sua sessão expirou. Entre de novo.'); };
   window.__memdb = db;
-  window.__memSeed = (table, rows) => { rows.forEach((r) => db[table].push({ id: uid(), ...r })); save(); };
+  window.__memSeed = (table, rows) => {
+    rows.forEach((r) => db[table].push({ id: uid(), ...(table === 'tags' ? { owner_id: r.created_by || 'u1' } : {}), ...r })); save();
+  };
   window.__TEST_STORE__ = {
     async signIn(email, password) {
       const u = USERS.find((x) => x.email === email && x.password === password);
@@ -32,7 +34,8 @@
       return db[table].filter((r) =>
         (!f.competence_from || r.competence_date >= f.competence_from) &&
         (!f.competence_to || r.competence_date <= f.competence_to) &&
-        (!f.owner_id || r.owner_id === f.owner_id)).map((r) => ({ ...r }));
+        (!f.owner_id || r.owner_id === f.owner_id) &&
+        (!OWNED.includes(table) || r.owner_id === user.id) && (table !== 'profiles' || r.id === user.id)).map((r) => ({ ...r }));
     },
     async insert(table, rows) {
       need();
@@ -59,6 +62,7 @@
       need();
       if (table === 'profiles') deny();
       if (table === 'tags') {
+        if (!db.tags.some((t) => t.id === id && t.owner_id === user.id)) return;
         const apagar = new Set([id, ...db.tags.filter((t) => t.parent_id === id).map((t) => t.id)]);
         db.tags = db.tags.filter((t) => !apagar.has(t.id));
         window.__memdb.tags = db.tags;

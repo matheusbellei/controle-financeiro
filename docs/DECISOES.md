@@ -72,13 +72,19 @@ Decisões que o Claude tomou por conta própria. Cada item traz o que acontece s
 ## Ajustes de 20/11 (2)
 - **App instalável (PWA):** nome "Controle de Finanças Pessoais", curto "Finanças pessoais", ícone de moeda caramelo com "R$" no fundo café. O service worker busca a página sempre da internet primeiro (para pegar versões novas) e guarda uma cópia para abrir sem conexão; ícones, fontes e bibliotecas vêm da cópia guardada; dados do Supabase nunca passam pelo cache.
 
+## Ajustes de 20/11 (3)
+- **Privacidade no banco (migracao-005):** o banco só entrega a cada conta os próprios lançamentos, recorrentes, limites, metas, valores guardados e perfil. Antes só a tela escondia.
+- **Tags por pessoa:** as tags de hoje ficam com o dono indicado pelo e-mail no script; cada outra conta recebe uma cópia (mesmo nome, cor, ícone, arquivamento e subtags), e os lançamentos, recorrentes e limites dela passam a apontar para a cópia. Daí em diante, criar, editar, arquivar ou excluir uma tag só afeta quem é dono dela. *Se errado:* uma tag nova criada por um não aparece para o outro; é preciso criar nas duas contas.
+- **Subtag em tag de outra pessoa:** o banco não impede tecnicamente (a checagem causava recursão nas regras), mas a tela só mostra as suas tags, então isso não acontece pelo app.
+- **Backup:** importar traz as suas tags; backup antigo, sem dono nas tags, também é aceito.
+
 ## Tags e orçamento
 - **Só um nível de subtag.** Uma tag que tem subtags não pode virar subtag.
 - **Limite mensal** fica no formulário da tag principal. Apagar o valor remove o limite.
 - **No "Juntos",** os limites dos dois são somados.
 
 ## Telas
-- **Recorrentes** mostra só os seus. Os lançamentos gerados aparecem para os dois na tela Mês.
+- **Recorrentes** mostra só os seus.
 - **Encerrar recorrente:** o último lançamento é no mês atual. Não há como reativar; é preciso criar outro.
 - **Retirada de meta:** basta guardar um valor negativo.
 - **Subtags nos Dashboards** abrem pelos botões abaixo do gráfico (melhor no celular).
@@ -88,8 +94,7 @@ Decisões que o Claude tomou por conta própria. Cada item traz o que acontece s
 
 ## Técnica
 - **Login e dados no Supabase,** com RLS:
-  - os dois veem tudo;
-  - cada um grava só o que é seu;
+  - cada um vê e grava só o que é seu, inclusive as tags;
   - lançamentos só apontam para recorrentes seus;
   - valores guardados só vão para metas suas.
 - **Buscas** são feitas em páginas de 1000 linhas, para anos de histórico não serem cortados.
@@ -105,4 +110,5 @@ Decisões que o Claude tomou por conta própria. Cada item traz o que acontece s
 - A importação do backup para no meio se um recorrente do mês já foi recriado com outro id.
 - O texto de "Encerrar" indica o mês errado para recorrente no crédito.
 - Mudar mês ou ano nos Dashboards também muda o mês da tela Mês.
+- Importar na conta da Denise um backup antigo feito pela conta do Matheus falha nas tags (o id já existe, mas é dele).
 - O CSV não protege contra fórmulas (descrições que começam com =, +, - ou @).

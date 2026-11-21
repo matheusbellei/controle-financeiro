@@ -6,7 +6,7 @@ App de finanças pessoais para duas pessoas, num único arquivo (`index.html`), 
 - Crédito conta no dia 10 do mês seguinte; parcelado distribui as parcelas pelos meses
 - Recorrentes, orçamento por tag, metas de economia
 - Dashboards (gasto por tag, mês a mês, comparativo entre anos, aportes) e visão do ano
-- Filtro Eu / Ela / Juntos: cada um edita só o seu, mas vê os dados do outro
+- Cada conta vê e edita só os próprios dados, com as próprias tags (garantido no banco)
 - Backup em JSON e exportação em CSV
 
 ## Como colocar no ar
@@ -27,6 +27,9 @@ Rode esse arquivo no SQL Editor **antes** de usar a versão nova. Ele não apaga
 - `migracao-002-doacoes.sql` — adiciona o tipo "Doação".
 - `migracao-003-extraordinario-excluir-tags.sql` — gasto extraordinário e exclusão de tags/subtags.
 - `migracao-004-extraordinario-parcial.sql` — só parte de um lançamento extraordinária.
+- `migracao-005-privacidade.sql` — cada conta só lê os próprios dados, e as tags passam a ser de cada um.
+  **Antes de rodar**, troque `COLOQUE-SEU-EMAIL-AQUI` (linha marcada com `<<<`) pelo e-mail de login de quem fica com as tags atuais.
+  As outras contas recebem uma cópia delas. E-mail errado: o script para e nada muda.
 
 ### 2. Chave do app
 
@@ -42,7 +45,7 @@ Nunca coloque a *secret key* nem a senha do banco no arquivo.
 4. Em 1 a 2 minutos o app fica em `https://SEU-USUARIO.github.io/controle-financas/`.
 5. No Supabase, em **Authentication → URL Configuration**, coloque esse endereço em **Site URL**.
 
-O código fica público, mas os dados não: sem login ninguém lê nada (RLS + cadastro desligado).
+O código fica público, mas os dados não: sem login ninguém lê nada, e cada conta só lê o que é seu (RLS + cadastro desligado).
 
 ### Instalar no celular ou no PC (app instalável)
 

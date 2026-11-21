@@ -50,8 +50,8 @@ test('usuário grava lançamento próprio e não consegue gravar em nome do outr
          values ('${B}','gasto',100,'x','2026-11-02','2026-11-02','pix')`), /row-level security/);
 });
 
-test('a outra pessoa vê, mas não altera nem exclui, o lançamento', () => {
-  assert.equal(as(B, `select description from transactions where owner_id='${A}'`), 'Padaria');
+test('a outra pessoa não vê, não altera e não exclui o lançamento', () => {
+  assert.equal(as(B, `select description from transactions where owner_id='${A}'`), '');
   as(B, `update transactions set amount_cents=1 where owner_id='${A}'`);
   as(B, `delete from transactions where owner_id='${A}'`);
   assert.equal(psql('finteste', `select amount_cents from transactions where owner_id='${A}'`), '4890');
@@ -62,12 +62,15 @@ test('visitante sem login não lê nada', () => {
   fails(() => as(null, 'select * from transactions'), /permission denied/);
 });
 
-test('tags: qualquer logado cria, edita e exclui', () => {
+test('tags: cada um cria, edita e exclui só as próprias', () => {
   as(A, `insert into tags(name,color,icon,created_by) values ('Moradia','#6F4E37','home','${A}')`);
   as(B, `update tags set name='Casa' where name='Moradia'`);
   as(A, `insert into tags(name,color,icon,created_by) values ('Temporária','#6F4E37','tag','${A}')`);
   as(B, `delete from tags where name='Temporária'`);
-  assert.equal(psql('finteste', `select name from tags`), 'Casa');
+  assert.equal(psql('finteste', `select string_agg(name, ',' order by name) from tags`), 'Moradia,Temporária');
+  as(A, `delete from tags where name='Temporária'`);
+  fails(() => as(B, `insert into tags(name,owner_id) values ('Invasora','${A}')`), /row-level security/);
+  assert.equal(psql('finteste', `select name from tags`), 'Moradia');
 });
 
 test('o mesmo recorrente não gera dois lançamentos na mesma competência', () => {

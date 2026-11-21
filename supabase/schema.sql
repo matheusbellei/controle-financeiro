@@ -16,8 +16,10 @@ create table public.tags (
   icon       text not null default 'tag',
   parent_id  uuid references public.tags(id) on delete cascade,
   archived   boolean not null default false,
-  created_by uuid not null default auth.uid() references auth.users(id)
+  created_by uuid not null default auth.uid() references auth.users(id),
+  owner_id   uuid not null default auth.uid() references auth.users(id) on delete cascade
 );
+create index tags_owner_idx on public.tags (owner_id);
 
 create table public.recurrences (
   id            uuid primary key default gen_random_uuid(),
@@ -113,18 +115,19 @@ alter table public.budgets       enable row level security;
 alter table public.goals         enable row level security;
 alter table public.goal_deposits enable row level security;
 
--- Perfis: todos os logados veem; cada um edita o próprio.
-create policy "ver perfis" on public.profiles for select to authenticated using (true);
+-- Perfis: cada um vê e edita só o próprio.
+create policy "ver meu perfil" on public.profiles for select to authenticated using (id = (select auth.uid()));
 create policy "editar meu perfil" on public.profiles for update to authenticated
   using (id = (select auth.uid())) with check (id = (select auth.uid()));
 
--- Tags: lista compartilhada — os dois veem, criam, editam, arquivam e excluem.
-create policy "ver tags" on public.tags for select to authenticated using (true);
-create policy "criar tags" on public.tags for insert to authenticated with check (true);
-create policy "editar tags" on public.tags for update to authenticated using (true) with check (true);
-create policy "excluir tags" on public.tags for delete to authenticated using (true);
+-- Tags: cada um vê, cria, edita e exclui só as próprias.
+create policy "ver minhas tags" on public.tags for select to authenticated using (owner_id = (select auth.uid()));
+create policy "criar minhas tags" on public.tags for insert to authenticated with check (owner_id = (select auth.uid()));
+create policy "editar minhas tags" on public.tags for update to authenticated using (owner_id = (select auth.uid()))
+  with check (owner_id = (select auth.uid()));
+create policy "excluir minhas tags" on public.tags for delete to authenticated using (owner_id = (select auth.uid()));
 
--- Dados pessoais: todos os logados veem; só o dono grava, edita e exclui.
+-- Dados pessoais: cada conta só vê, grava, edita e exclui o que é seu.
 -- Lançamentos só podem apontar para recorrentes próprios; valores guardados, só para metas próprias.
 do $$
 declare
@@ -136,7 +139,7 @@ begin
       when 'transactions' then ' and (recurrence_id is null or exists (select 1 from public.recurrences r where r.id = recurrence_id and r.owner_id = (select auth.uid())))'
       when 'goal_deposits' then ' and exists (select 1 from public.goals g where g.id = goal_id and g.owner_id = (select auth.uid()))'
       else '' end;
-    execute format('create policy "ver" on public.%I for select to authenticated using (true)', t);
+    execute format('create policy "ver o meu" on public.%I for select to authenticated using (owner_id = (select auth.uid()))', t);
     execute format('create policy "criar o meu" on public.%I for insert to authenticated with check (owner_id = (select auth.uid())%s)', t, extra);
     execute format('create policy "editar o meu" on public.%I for update to authenticated using (owner_id = (select auth.uid())) with check (owner_id = (select auth.uid())%s)', t, extra);
     execute format('create policy "excluir o meu" on public.%I for delete to authenticated using (owner_id = (select auth.uid()))', t);
