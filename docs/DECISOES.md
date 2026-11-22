@@ -92,6 +92,7 @@ Decisões que o Claude tomou por conta própria. Cada item traz o que acontece s
 - **Aparelhos:** cada aparelho ativado recebe o lembrete; ativar também liga o lembrete. Se o mesmo aparelho for usado pelas duas contas, fica com quem ativou por último. Aparelho que desinstalou o app é removido no primeiro envio que falhar. *Se errado:* sair da conta não desativa o aparelho; é preciso tocar em "Parar de receber neste aparelho".
 - **Sem bibliotecas na função:** criptografia (RFC 8291) e assinatura (RFC 8292) com WebCrypto, testadas com o exemplo do RFC. A função confere sozinha o segredo do agendamento e o login de quem pede o teste, por isso a verificação de JWT do Supabase fica desligada.
 - **iPhone:** só funciona com o app instalado na Tela de Início (iOS 16.4+); a tela avisa quando não está.
+- **Correção (22/11):** a tela do lembrete dizia "rode a migração 006" mesmo com ela rodada. A busca da configuração ordenava por uma coluna `id` que essa tabela não tem.
 
 ## Tags e orçamento
 - **Só um nível de subtag.** Uma tag que tem subtags não pode virar subtag.

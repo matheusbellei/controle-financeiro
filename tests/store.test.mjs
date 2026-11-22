@@ -139,3 +139,14 @@ test('rpc e função do Supabase: erro da função chega em português', async (
   client.functions.invoke = async () => ({ data: null, error: { message: 'x', context: { status: 404, json: async () => ({}) } } });
   await assert.rejects(s.invokeFunction('lembrete-diario', {}), /ainda não está no Supabase/);
 });
+
+test('list da configuração do lembrete ordena pela chave dela (não tem coluna id)', async () => {
+  const client = fakeClient({ data: [], error: null });
+  await makeStore(client).list('lembrete_config');
+  assert.deepEqual(ops(client.calls[0]), [['select', '*'], ['order', 'owner_id'], ['range', 0, 999]]);
+});
+
+test('coluna que não existe não é confundida com a migração 006 faltando', async () => {
+  const client = fakeClient({ data: null, error: { message: 'column lembrete_config.id does not exist' } });
+  await assert.rejects(makeStore(client).list('frases'), (e) => !/migracao-006/.test(e.message));
+});

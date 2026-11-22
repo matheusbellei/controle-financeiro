@@ -273,7 +273,7 @@ function traduzErro(error) {
   if (/extraordinario_cents/i.test(msg)) return 'O banco ainda não aceita extraordinário parcial. No Supabase, rode o arquivo migracao-004-extraordinario-parcial.sql no SQL Editor.';
   if (/extraordinario/i.test(msg)) return 'O banco ainda não tem a opção de gasto extraordinário. No Supabase, rode o arquivo migracao-003-extraordinario-excluir-tags.sql no SQL Editor.';
   if (/kind_check/i.test(msg)) return 'O banco ainda não aceita doações. No Supabase, rode o arquivo migracao-002-doacoes.sql no SQL Editor.';
-  if (/(lembrete_config|push_inscricoes|frases|registrar_inscricao)/i.test(msg) && /schema cache|does not exist|Could not find/i.test(msg))
+  if (/(relation|table|function)\W+(public\.)?"?(lembrete_config|push_inscricoes|frases|registrar_inscricao)\b/i.test(msg) && /schema cache|does not exist|Could not find/i.test(msg))
     return 'O banco ainda não tem o lembrete diário. No Supabase, rode o arquivo migracao-006-lembrete-diario.sql no SQL Editor.';
   if (/permission denied for table tags/i.test(msg)) return 'O banco ainda não permite excluir tags. No Supabase, rode o arquivo migracao-003-extraordinario-excluir-tags.sql no SQL Editor.';
   if (/row-level security|permission denied/i.test(msg)) return 'Você só pode alterar os seus próprios dados.';
@@ -312,7 +312,7 @@ function createStore(client) {
         if (filtros.competence_from) q = q.gte('competence_date', filtros.competence_from);
         if (filtros.competence_to) q = q.lte('competence_date', filtros.competence_to);
         if (filtros.owner_id) q = q.eq('owner_id', filtros.owner_id);
-        q = q.order('id').range(from, from + PAGE - 1);
+        q = q.order(table === 'lembrete_config' ? 'owner_id' : 'id').range(from, from + PAGE - 1); // lembrete_config não tem id
         const page = check(await q) || [];
         all.push(...page);
         if (page.length < PAGE) return all;
