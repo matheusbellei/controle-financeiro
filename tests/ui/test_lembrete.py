@@ -72,6 +72,7 @@ class Lembrete(UITest):
         self.assertEqual(p.get_attribute('#lembrete-dias [data-dia="7"]', 'aria-pressed'), 'false')
         self.assertEqual(p.get_attribute('#lembrete-dias [data-dia="1"]', 'aria-pressed'), 'true')
         self.assertFalse(p.is_checked('#lembrete-pular'))
+        self.assertIn('Cancelar a notificação se já houver um lançamento no dia', p.inner_text('#lembrete-cartao'))
         self.assertEqual(p.input_value('#lembrete-titulo'), 'Bora lançar')
 
     def test_sem_nenhum_dia_nao_salva(self):

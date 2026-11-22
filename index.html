@@ -2149,7 +2149,8 @@ async function montarLembrete(el) {
     <label class="campo"><span>Horário</span><input type="time" id="lembrete-hora" step="900"></label>
     <div class="campo"><span>Dias</span><div class="chips" id="lembrete-dias">${DIAS_SEMANA.map(([d, n]) =>
       `<button type="button" class="chip" data-dia="${d}">${n}</button>`).join('')}</div></div>
-    <label class="linha-check"><input type="checkbox" id="lembrete-pular"><span>Não avisar se eu já lancei algo no dia</span></label>
+    <label class="linha-check"><input type="checkbox" id="lembrete-pular"><span>Cancelar a notificação se já houver um lançamento no dia<br>
+      <span class="suave">Se você já registrou algo hoje antes do horário do lembrete, a notificação daquele dia não chega.</span></span></label>
     <label class="campo"><span>Título da notificação</span><input id="lembrete-titulo" maxlength="60"></label>
     <label class="campo"><span>Mensagem</span><textarea id="lembrete-mensagem" maxlength="200" rows="2"></textarea></label>
     <div class="campo"><span>Como vai aparecer (a frase muda a cada dia)</span><div id="lembrete-previa"></div></div>
