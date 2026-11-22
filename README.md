@@ -31,7 +31,8 @@ Rode esse arquivo no SQL Editor **antes** de usar a versão nova. Ele não apaga
 - `migracao-005-privacidade.sql` — cada conta só lê os próprios dados, e as tags passam a ser de cada um.
   **Antes de rodar**, troque `COLOQUE-SEU-EMAIL-AQUI` (linha marcada com `<<<`) pelo e-mail de login de quem fica com as tags atuais.
   As outras contas recebem uma cópia delas. E-mail errado: o script para e nada muda.
-- `migracao-006-lembrete-diario.sql` — lembrete diário: configuração por pessoa, aparelhos e frases (30 prontas).
+- `migracao-006-lembrete-diario.sql` — lembrete diário: configuração por pessoa, aparelhos e frases prontas.
+- `migracao-007-frases-de-personagens.sql` — troca 2 frases prontas por 5 de personagens (Tio Patinhas, Seu Madruga…).
 
 ### Lembrete diário (notificações)
 

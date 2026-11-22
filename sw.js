@@ -58,8 +58,8 @@ self.addEventListener('push', (ev) => {
   try { d = (ev.data && ev.data.json()) || {}; } catch (e) { d = { corpo: ev.data ? ev.data.text() : '' }; }
   ev.waitUntil(self.registration.showNotification(d.titulo || 'Finanças pessoais', {
     body: d.corpo || 'Hora de lançar os gastos do dia.',
-    icon: './icone-192.png',
-    badge: './icone-192.png',
+    // Sem "icon": o Android já mostra o ícone do app (com ele, o logo aparecia duas vezes) e o iPhone ignora.
+    badge: './icone-notificacao.png', // barra de status do Android: forma branca em fundo transparente
     tag: 'lembrete-diario',
     renotify: true,
     data: { url: d.url || './' },

@@ -25,10 +25,22 @@ def desenhar(tamanho, cantos_redondos, area_util=0.62):
     d.text((c, c + r * 0.02), 'R$', font=fonte, fill=ESPRESSO, anchor='mm')
     return img.resize((tamanho, tamanho), Image.LANCZOS)
 
+def desenhar_badge(tamanho=96):
+    # Ícone pequeno da barra de status do Android: só a forma, branca, em fundo transparente
+    # (o Android pinta a cor sozinho; ícone colorido vira um quadrado branco).
+    escala = 4
+    t = tamanho * escala
+    img = Image.new('RGBA', (t, t), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    fonte = ImageFont.truetype(FONTE, int(t * 0.62))
+    d.text((t / 2, t / 2), 'R$', font=fonte, fill='white', anchor='mm')
+    return img.resize((tamanho, tamanho), Image.LANCZOS)
+
 if __name__ == '__main__':
     desenhar(192, True).save(RAIZ / 'icone-192.png')
     desenhar(512, True).save(RAIZ / 'icone-512.png')
     # maskable: fundo até a borda e desenho dentro da área segura (o sistema recorta o formato)
     desenhar(512, False, area_util=0.5).save(RAIZ / 'icone-maskable-512.png')
     desenhar(180, False).save(RAIZ / 'icone-180.png')  # iPhone arredonda sozinho
+    desenhar_badge().save(RAIZ / 'icone-notificacao.png')
     print('ícones gerados')

@@ -317,7 +317,8 @@ grant execute on function public.lembretes_devidos(timestamptz) to service_role;
 grant execute on function public.lembrete_teste(uuid) to service_role;
 
 -- ============ Frases prontas ============
--- Só frases com autoria conhecida (as famosas de autoria falsa ficaram de fora). Cada um pode desligar autores.
+-- Só frases com autoria conhecida (as famosas de autoria falsa ficaram de fora), mais algumas de personagens.
+-- Cada um pode desligar autores.
 
 insert into public.frases (owner_id, texto, autor)
 select null, v.texto, v.autor
@@ -328,7 +329,6 @@ from (values
   ('Alguém está sentado à sombra hoje porque alguém plantou uma árvore há muito tempo.', 'Warren Buffett'),
   ('Nosso prazo favorito para manter um investimento é para sempre.', 'Warren Buffett'),
   ('É muito melhor comprar uma empresa maravilhosa a um preço justo do que uma empresa razoável a um preço maravilhoso.', 'Warren Buffett'),
-  ('Só quando a maré baixa você descobre quem estava nadando pelado.', 'Warren Buffett'),
   ('O risco vem de não saber o que você está fazendo.', 'Warren Buffett'),
   ('O tempo é amigo da empresa maravilhosa e inimigo da medíocre.', 'Warren Buffett'),
   ('O melhor investimento que você pode fazer é em si mesmo.', 'Warren Buffett'),
@@ -349,7 +349,11 @@ from (values
   ('Riqueza é o que você não vê.', 'Morgan Housel'),
   ('Não é pobre quem tem pouco, mas quem deseja mais.', 'Sêneca'),
   ('Não importa quanto dinheiro você ganha, e sim quanto dinheiro você guarda.', 'Robert Kiyosaki'),
-  ('Viva como ninguém vive agora, para depois poder viver como ninguém vive.', 'Dave Ramsey'),
+  ('Fiquei rico sendo mais durão que os durões e mais esperto que os espertos.', 'Tio Patinhas (quadrinhos da Disney)'),
+  ('Não existe trabalho ruim. O ruim é ter que trabalhar.', 'Seu Madruga (Chaves)'),
+  ('Você não é o quanto tem no banco.', 'Tyler Durden (Clube da Luta)'),
+  ('Eu gosto de dinheiro.', 'Sr. Siriguejo (Bob Esponja)'),
+  ('Me venda esta caneta.', 'Jordan Belfort (O Lobo de Wall Street)'),
   ('Investir deveria ser como ver a tinta secar ou a grama crescer. Se quer emoção, pegue 800 dólares e vá para Las Vegas.', 'Paul Samuelson'),
   ('A educação formal lhe dará o sustento; a autoeducação lhe dará uma fortuna.', 'Jim Rohn')
 ) as v (texto, autor)

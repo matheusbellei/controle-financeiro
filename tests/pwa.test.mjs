@@ -79,7 +79,8 @@ test('service worker: notificação de push aparece com título, texto e ícone'
   const [titulo, op] = sw.mostradas[0];
   assert.equal(titulo, 'Hora de lançar os gastos');
   assert.equal(op.body, 'Leva um minuto.\n\n“Frase” — Autor');
-  assert.equal(op.icon, './icone-192.png');
+  assert.equal(op.icon, undefined, 'o Android já mostra o ícone do app; imagem extra duplica o logo');
+  assert.equal(op.badge, './icone-notificacao.png');
   assert.equal(op.tag, 'lembrete-diario');
 });
 
@@ -98,4 +99,11 @@ test('service worker: tocar na notificação abre o app, ou traz a janela aberta
   await sw2.disparar('notificationclick', { notification: { close: fechar, data: {} } });
   assert.deepEqual(sw2.abertas, []);
   assert.deepEqual(sw2.focadas, ['https://matheusbellei.github.io/controle-financeiro/index.html']);
+});
+
+test('ícone da barra de status: branco sobre fundo transparente, como o Android exige', () => {
+  const png = ler('icone-notificacao.png');
+  assert.equal(png.readUInt32BE(16), 96); // largura
+  assert.equal(png.readUInt32BE(20), 96); // altura
+  assert.equal(png[25], 6, 'PNG com transparência (RGBA)');
 });

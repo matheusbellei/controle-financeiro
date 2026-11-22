@@ -20,7 +20,10 @@ const bancos = {
   finlemb_novo: () => ler('supabase/schema.sql'),
   finlemb_migrado: () => execFileSync('git', ['show', '1004d1f:supabase/schema.sql'], { encoding: 'utf8' }) + '\n' +
     ler('supabase/migracao-003-extraordinario-excluir-tags.sql') + '\n' + ler('supabase/migracao-004-extraordinario-parcial.sql') + '\n' +
-    m005() + '\n' + ler('supabase/migracao-006-lembrete-diario.sql') + '\n' + ler('supabase/migracao-006-lembrete-diario.sql'),
+    // a 006 exatamente como foi entregue (e rodada no Supabase), depois a 006 atual, depois a 007 duas vezes
+    m005() + '\n' + execFileSync('git', ['show', 'caf9510:supabase/migracao-006-lembrete-diario.sql'], { encoding: 'utf8' }) + '\n' +
+    ler('supabase/migracao-006-lembrete-diario.sql') + '\n' +
+    ler('supabase/migracao-007-frases-de-personagens.sql') + '\n' + ler('supabase/migracao-007-frases-de-personagens.sql'),
 };
 
 before(() => {
@@ -41,8 +44,11 @@ for (const db of Object.keys(bancos)) {
   const limpar = () => q(`delete from lembrete_config; delete from push_inscricoes; delete from transactions; delete from frases where owner_id is not null`);
 
   test(`[${db}] frases prontas vêm na migração e não duplicam`, () => {
-    assert.equal(q(`select count(*) from frases where owner_id is null`), '30');
-    assert.equal(q(`select count(*) from frases where owner_id is null and autor = 'Warren Buffett'`), '12');
+    assert.equal(q(`select count(*) from frases where owner_id is null`), '33');
+    assert.equal(q(`select count(*) from frases where owner_id is null and autor = 'Warren Buffett'`), '11');
+    assert.equal(q(`select count(*) from frases where autor = 'Dave Ramsey' or texto ilike '%nadando pelado%'`), '0');
+    assert.equal(q(`select string_agg(autor, ', ' order by autor) from frases where owner_id is null and autor like '%(%'`),
+      'Jordan Belfort (O Lobo de Wall Street), Seu Madruga (Chaves), Sr. Siriguejo (Bob Esponja), Tio Patinhas (quadrinhos da Disney), Tyler Durden (Clube da Luta)');
     assert.equal(q(`select count(*) from frases where texto ilike '%oitava maravilha%'`), '0');
   });
 
@@ -57,11 +63,11 @@ for (const db of Object.keys(bancos)) {
 
     as(B, `insert into frases (texto, autor) values ('Pague-se primeiro.', 'Denise')`);
     assert.equal(as(A, `select count(*) from frases where owner_id is not null`), '0');
-    assert.equal(as(B, `select count(*) from frases`), '31');
+    assert.equal(as(B, `select count(*) from frases`), '34');
     as(B, `update frases set texto = 'mudei' where owner_id is null`);
     as(B, `delete from frases where owner_id is null`);
     assert.equal(q(`select count(*) from frases where owner_id is null and texto = 'mudei'`), '0');
-    assert.equal(q(`select count(*) from frases where owner_id is null`), '30');
+    assert.equal(q(`select count(*) from frases where owner_id is null`), '33');
     fails(() => as(A, `insert into frases (owner_id, texto) values (null, 'pronta falsa')`), /row-level security/);
   });
 
