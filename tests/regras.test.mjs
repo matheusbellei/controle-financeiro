@@ -296,3 +296,44 @@ test('parte extraordinária dividida entre parcelas na proporção de cada uma',
   assert.equal(p.reduce((a, b) => a + b, 0), 50000);
   p.forEach((v, i) => assert.ok(v <= [33334, 33333, 33333][i]));
 });
+
+// ---------- lembrete diário ----------
+const FRASES = [
+  { id: 'p1', owner_id: null, texto: 'Preço é o que você paga.', autor: 'Warren Buffett' },
+  { id: 'p2', owner_id: null, texto: 'Riqueza é o que você não vê.', autor: 'Morgan Housel' },
+  { id: 'p3', owner_id: null, texto: 'Outra do Buffett.', autor: 'Warren Buffett' },
+  { id: 'm1', owner_id: 'u1', texto: 'Pague-se primeiro.', autor: '' },
+];
+test('lembrete: configuração padrão', () => {
+  deq(R.LEMBRETE_PADRAO, { ativo: false, hora: '21:00', dias: [1, 2, 3, 4, 5, 6, 7], pular_se_lancou: true,
+    titulo: 'Hora de lançar os gastos', mensagem: 'Leva um minuto: registre o que entrou e o que saiu hoje.',
+    com_frase: true, fonte_frases: 'todas', autores_desligados: [] });
+});
+test('lembrete: frases permitidas seguem a origem e os autores desligados', () => {
+  const ids = (cfg) => R.frasesPermitidas(FRASES, { ...R.LEMBRETE_PADRAO, ...cfg }, 'u1').map((f) => f.id);
+  deq(ids({}), ['p1', 'p2', 'p3', 'm1']);
+  deq(ids({ fonte_frases: 'prontas' }), ['p1', 'p2', 'p3']);
+  deq(ids({ fonte_frases: 'minhas' }), ['m1']);
+  deq(ids({ autores_desligados: ['Warren Buffett'] }), ['p2', 'm1']);
+  deq(R.frasesPermitidas(FRASES, R.LEMBRETE_PADRAO, 'u2').map((f) => f.id), ['p1', 'p2', 'p3']);
+});
+test('lembrete: autores das frases prontas, com quantas frases cada um', () => {
+  deq(R.autoresDasFrases(FRASES), [{ autor: 'Warren Buffett', n: 2 }, { autor: 'Morgan Housel', n: 1 }]);
+});
+test('lembrete: texto da notificação igual ao que o banco monta', () => {
+  const cfg = { ...R.LEMBRETE_PADRAO, mensagem: 'Bom dia' };
+  deq(R.textoLembrete(cfg, FRASES[0]), { titulo: 'Hora de lançar os gastos', corpo: 'Bom dia\n\n“Preço é o que você paga.” — Warren Buffett' });
+  deq(R.textoLembrete(cfg, FRASES[3]).corpo, 'Bom dia\n\n“Pague-se primeiro.”');
+  deq(R.textoLembrete({ ...cfg, mensagem: '' }, FRASES[1]).corpo, '“Riqueza é o que você não vê.” — Morgan Housel');
+  deq(R.textoLembrete({ ...cfg, com_frase: false }, FRASES[0]).corpo, 'Bom dia');
+  deq(R.textoLembrete(cfg, null).corpo, 'Bom dia');
+});
+test('lembrete: no iPhone, só funciona com o app instalado na Tela de Início', () => {
+  const iphone = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1';
+  assert.equal(R.precisaInstalarNoIphone(iphone, false), true);
+  assert.equal(R.precisaInstalarNoIphone(iphone, true), false);
+  assert.equal(R.precisaInstalarNoIphone('Mozilla/5.0 (Linux; Android 14) Chrome/130', false), false);
+});
+test('lembrete: chave pública em base64url vira bytes', () => {
+  deq(Array.from(R.deb64url('AQID_-8')), [1, 2, 3, 255, 239]);
+});

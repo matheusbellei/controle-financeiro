@@ -7,6 +7,7 @@ App de finanças pessoais para duas pessoas, num único arquivo (`index.html`), 
 - Recorrentes, orçamento por tag, metas de economia
 - Dashboards (gasto por tag, mês a mês, comparativo entre anos, aportes) e visão do ano
 - Cada conta vê e edita só os próprios dados, com as próprias tags (garantido no banco)
+- Lembrete diário por notificação, com frases sobre dinheiro (configurável por pessoa)
 - Backup em JSON e exportação em CSV
 
 ## Como colocar no ar
@@ -15,7 +16,7 @@ App de finanças pessoais para duas pessoas, num único arquivo (`index.html`), 
 
 1. No painel do Supabase, abra **SQL Editor → New query**.
 2. Cole todo o conteúdo de `supabase/schema.sql` e clique em **Run**. Esperado: "Success. No rows returned".
-3. Confira com `select tablename, rowsecurity from pg_tables where schemaname='public';`: 7 tabelas, todas `true`.
+3. Confira com `select tablename, rowsecurity from pg_tables where schemaname='public';`: 10 tabelas, todas `true`.
 4. Em **Authentication → Users**, crie as contas (e-mail + senha, com **Auto Confirm User**).
 5. Em **Authentication → Sign In / Providers**, mantenha **Allow new users to sign up** desligado.
 
@@ -30,6 +31,19 @@ Rode esse arquivo no SQL Editor **antes** de usar a versão nova. Ele não apaga
 - `migracao-005-privacidade.sql` — cada conta só lê os próprios dados, e as tags passam a ser de cada um.
   **Antes de rodar**, troque `COLOQUE-SEU-EMAIL-AQUI` (linha marcada com `<<<`) pelo e-mail de login de quem fica com as tags atuais.
   As outras contas recebem uma cópia delas. E-mail errado: o script para e nada muda.
+- `migracao-006-lembrete-diario.sql` — lembrete diário: configuração por pessoa, aparelhos e frases (30 prontas).
+
+### Lembrete diário (notificações)
+
+Além da migração 006, o lembrete precisa de uma Edge Function e de um agendamento no Supabase:
+
+1. Gere as chaves em `ferramentas/gerar-chaves.html` (abre no navegador; nada sai dele).
+2. Crie a Edge Function `lembrete-diario` com o código de `supabase/functions/lembrete-diario/index.ts`, com a verificação de JWT **desligada**.
+3. Em Edge Functions → Secrets: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `LEMBRETE_SEGREDO` e `VAPID_SUBJECT` (`mailto:seu-email`).
+4. Rode `supabase/agendar-lembrete.sql` no SQL Editor, trocando `COLE-O-SEGREDO-AQUI` pelo `LEMBRETE_SEGREDO` só no editor (nunca no arquivo).
+5. No app: Configurações → Lembrete diário → Receber neste aparelho → Enviar teste agora.
+
+A função não usa bibliotecas: a criptografia do Web Push (RFC 8291) e a assinatura VAPID (RFC 8292) são feitas com o WebCrypto e testadas com o exemplo oficial do RFC.
 
 ### 2. Chave do app
 
@@ -68,5 +82,6 @@ Os dados continuam no Supabase, então é preciso internet para ver e salvar lan
 - `npm test` roda:
   - testes das regras e da camada de armazenamento (Node);
   - testes do banco com RLS num Postgres local (`tests/db`, precisa de `psql` e de um servidor em `/var/tmp/pgtest:5499`);
-  - testes de interface no Chrome headless (`tests/ui`, Python + Playwright).
+  - testes de interface no Chrome headless (`tests/ui`, Python + Playwright);
+  - testes da função de lembrete (`tests/webpush.test.mjs`), com o Supabase e os serviços de push simulados.
 - O `index.html` é dividido em 7 seções marcadas por comentários. Só a seção 3 (Armazenamento) fala com o banco.

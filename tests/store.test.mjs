@@ -113,3 +113,29 @@ test('coluna de extraordinário parcial ausente pede para rodar a atualização 
   const client = fakeClient({ data: null, error: { message: "Could not find the 'extraordinario_cents' column of 'transactions' in the schema cache" } });
   await assert.rejects(makeStore(client).insert('transactions', {}), /migracao-004-extraordinario-parcial\.sql/);
 });
+
+test('upsert grava a configuração e devolve a linha', async () => {
+  const client = fakeClient({ data: [{ owner_id: 'u1', hora: '07:30:00' }], error: null });
+  const r = await makeStore(client).upsert('lembrete_config', { owner_id: 'u1', hora: '07:30' });
+  assert.equal(r.hora, '07:30:00');
+  assert.deepEqual(ops(client.calls[0]), [['upsert', { owner_id: 'u1', hora: '07:30' }], ['select']]);
+});
+
+test('tabelas do lembrete ausentes pedem para rodar a atualização 006', async () => {
+  const client = fakeClient({ data: null, error: { message: "Could not find the table 'public.lembrete_config' in the schema cache" } });
+  await assert.rejects(makeStore(client).list('lembrete_config'), /migracao-006-lembrete-diario\.sql/);
+});
+
+test('rpc e função do Supabase: erro da função chega em português', async () => {
+  const client = fakeClient();
+  client.rpc = async (nome, args) => ({ data: [nome, args], error: null });
+  client.functions = { invoke: async (nome, op) => (op.method === 'GET'
+    ? { data: { chave: 'abc' }, error: null }
+    : { data: null, error: { message: 'Edge Function returned a non-2xx status code', context: { status: 409, json: async () => ({ erro: 'Ative as notificações neste aparelho primeiro.' }) } } }) };
+  const s = makeStore(client);
+  assert.deepEqual(JSON.parse(JSON.stringify(await s.rpc('registrar_inscricao', { p_endpoint: 'e' }))), ['registrar_inscricao', { p_endpoint: 'e' }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(await s.invokeFunction('lembrete-diario', { method: 'GET' }))), { chave: 'abc' });
+  await assert.rejects(s.invokeFunction('lembrete-diario', { body: { acao: 'teste' } }), /Ative as notificações neste aparelho primeiro\./);
+  client.functions.invoke = async () => ({ data: null, error: { message: 'x', context: { status: 404, json: async () => ({}) } } });
+  await assert.rejects(s.invokeFunction('lembrete-diario', {}), /ainda não está no Supabase/);
+});

@@ -34,9 +34,10 @@ before(() => {
   psql('finteste', `insert into auth.users values ('${A}','matheus@x.com'),('${B}','ela@x.com')`);
 });
 
-test('as 7 tabelas existem com RLS ligado', () => {
+test('as 10 tabelas existem com RLS ligado', () => {
   const out = psql('finteste', "select tablename||':'||rowsecurity from pg_tables where schemaname='public' order by 1");
-  assert.equal(out, ['budgets:true', 'goal_deposits:true', 'goals:true', 'profiles:true', 'recurrences:true', 'tags:true', 'transactions:true'].join('\n'));
+  assert.equal(out, ['budgets:true', 'frases:true', 'goal_deposits:true', 'goals:true', 'lembrete_config:true', 'profiles:true',
+    'push_inscricoes:true', 'recurrences:true', 'tags:true', 'transactions:true'].join('\n'));
 });
 
 test('novo usuário em auth.users ganha perfil com o e-mail como nome', () => {

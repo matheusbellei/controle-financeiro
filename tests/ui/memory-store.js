@@ -4,11 +4,12 @@
     { id: 'u1', email: 'matheus@x.com', password: 'senha123' },
     { id: 'u2', email: 'ela@x.com', password: 'senha456' },
   ];
-  const OWNED = ['transactions', 'recurrences', 'budgets', 'goals', 'goal_deposits', 'tags'];
+  const OWNED = ['transactions', 'recurrences', 'budgets', 'goals', 'goal_deposits', 'tags', 'lembrete_config', 'push_inscricoes', 'frases'];
   const db = JSON.parse(sessionStorage.getItem('memdb') || 'null') || {
     profiles: [{ id: 'u1', name: 'Matheus' }, { id: 'u2', name: 'denise.teixeira249@gmail.com' }],
     tags: [], transactions: [], recurrences: [], budgets: [], goals: [], goal_deposits: [],
   };
+  for (const t of ['lembrete_config', 'push_inscricoes', 'frases']) db[t] = db[t] || [];
   const save = () => sessionStorage.setItem('memdb', JSON.stringify(db));
   let n = Number(sessionStorage.getItem('memseq') || 0);
   const uid = () => { n++; sessionStorage.setItem('memseq', n); return 'id' + String(n).padStart(6, '0'); };
@@ -35,7 +36,7 @@
         (!f.competence_from || r.competence_date >= f.competence_from) &&
         (!f.competence_to || r.competence_date <= f.competence_to) &&
         (!f.owner_id || r.owner_id === f.owner_id) &&
-        (!OWNED.includes(table) || r.owner_id === user.id) && (table !== 'profiles' || r.id === user.id)).map((r) => ({ ...r }));
+        (!OWNED.includes(table) || r.owner_id === user.id || (table === 'frases' && r.owner_id == null)) && (table !== 'profiles' || r.id === user.id)).map((r) => ({ ...r }));
     },
     async insert(table, rows) {
       need();
@@ -73,10 +74,51 @@
       const i = db[table].findIndex((r) => r.id === id && r.owner_id === user.id);
       if (i >= 0) db[table].splice(i, 1); save();
     },
+    async upsert(table, row) {
+      need();
+      if (table !== 'lembrete_config') throw new Error('upsert só para lembrete_config no banco de teste');
+      if (row.owner_id && row.owner_id !== user.id) deny();
+      let atual = db.lembrete_config.find((c) => c.owner_id === user.id);
+      if (!atual) { atual = { owner_id: user.id }; db.lembrete_config.push(atual); }
+      Object.assign(atual, row, { owner_id: user.id }); save(); return { ...atual };
+    },
+    async rpc(nome, args) {
+      need();
+      if (nome !== 'registrar_inscricao') throw new Error('rpc desconhecida: ' + nome);
+      const resto = db.push_inscricoes.filter((i) => i.endpoint !== args.p_endpoint);
+      db.push_inscricoes.length = 0;
+      db.push_inscricoes.push(...resto, { id: uid(), owner_id: user.id, endpoint: args.p_endpoint, p256dh: args.p_p256dh, auth: args.p_auth, aparelho: args.p_aparelho || '' });
+      save(); return null;
+    },
+    async invokeFunction(nome, { method = 'POST', body = null } = {}) {
+      need();
+      (window.__memFuncoes = window.__memFuncoes || []).push([nome, method, body]);
+      if (method === 'GET') return { chave: 'BAECAw' };
+      const n = db.push_inscricoes.filter((i) => i.owner_id === user.id).length;
+      if (!n) throw new Error('Nenhum aparelho recebe notificações. Ative as notificações neste aparelho primeiro.');
+      return { enviados: n, removidos: 0, falhas: 0 };
+    },
     async removeWhere(table, where) {
       need();
       const keep = db[table].filter((r) => !(Object.keys(where).every((k) => r[k] === where[k]) && r.owner_id === user.id));
       db[table].length = 0; db[table].push(...keep); save();
     },
+  };
+
+  // Notificações do aparelho, simuladas. Nos testes: __pushNegar (pessoa bloqueia) e __pushPrecisaInstalar (iPhone sem instalar).
+  window.__TEST_PUSH__ = {
+    suportado: () => true,
+    precisaInstalar: () => !!window.__pushPrecisaInstalar,
+    permissao: () => sessionStorage.getItem('mempush-perm') || 'default',
+    async inscricaoAtual() { const x = sessionStorage.getItem('mempush'); return x ? JSON.parse(x) : null; },
+    async inscrever(chave) {
+      if (window.__pushNegar) { sessionStorage.setItem('mempush-perm', 'denied'); const e = new Error('negado'); e.code = 'negado'; throw e; }
+      sessionStorage.setItem('mempush-perm', 'granted');
+      window.__pushChaveUsada = Array.from(chave);
+      const sub = { endpoint: 'https://push.teste/aparelho-1', keys: { p256dh: 'chave-p256dh', auth: 'segredo-auth' } };
+      sessionStorage.setItem('mempush', JSON.stringify(sub)); return sub;
+    },
+    async cancelar() { sessionStorage.removeItem('mempush'); },
+    nomeAparelho: () => 'Teste',
   };
 })();

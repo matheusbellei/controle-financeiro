@@ -51,3 +51,51 @@ test('service worker: dados do Supabase e envios nunca vêm do cache', () => {
   assert.equal(d('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js'), 'cache-primeiro');
   assert.equal(d('https://fonts.gstatic.com/s/inter/v1.woff2'), 'cache-primeiro');
 });
+
+// Roda o sw.js num contexto falso e devolve os eventos registrados.
+function swFalso({ janelas = [] } = {}) {
+  const eventos = {}; const mostradas = []; const abertas = []; const focadas = [];
+  const ctx = {
+    URL, Promise, Response: class {}, caches: {}, fetch() {},
+    self: {
+      addEventListener: (nome, fn) => { eventos[nome] = fn; },
+      registration: { scope: 'https://matheusbellei.github.io/controle-financeiro/', showNotification: (t, o) => { mostradas.push([t, o]); return Promise.resolve(); } },
+    },
+    clients: {
+      matchAll: async () => janelas.map((url) => ({ url, focus: async () => { focadas.push(url); } })),
+      openWindow: async (url) => { abertas.push(url); },
+    },
+  };
+  vm.createContext(ctx);
+  vm.runInContext(ler('sw.js').toString(), ctx);
+  const disparar = async (nome, ev) => { let p; ev.waitUntil = (x) => { p = x; }; eventos[nome](ev); await p; };
+  return { disparar, mostradas, abertas, focadas };
+}
+
+test('service worker: notificação de push aparece com título, texto e ícone', async () => {
+  const sw = swFalso();
+  await sw.disparar('push', { data: { json: () => ({ titulo: 'Hora de lançar os gastos', corpo: 'Leva um minuto.\n\n“Frase” — Autor', url: './' }) } });
+  assert.equal(sw.mostradas.length, 1);
+  const [titulo, op] = sw.mostradas[0];
+  assert.equal(titulo, 'Hora de lançar os gastos');
+  assert.equal(op.body, 'Leva um minuto.\n\n“Frase” — Autor');
+  assert.equal(op.icon, './icone-192.png');
+  assert.equal(op.tag, 'lembrete-diario');
+});
+
+test('service worker: push sem conteúdo ainda mostra um aviso', async () => {
+  const sw = swFalso();
+  await sw.disparar('push', { data: null });
+  assert.equal(sw.mostradas[0][0], 'Finanças pessoais');
+});
+
+test('service worker: tocar na notificação abre o app, ou traz a janela aberta para frente', async () => {
+  const fechar = () => {};
+  const sw1 = swFalso();
+  await sw1.disparar('notificationclick', { notification: { close: fechar, data: { url: './' } } });
+  assert.deepEqual(sw1.abertas, ['https://matheusbellei.github.io/controle-financeiro/']);
+  const sw2 = swFalso({ janelas: ['https://matheusbellei.github.io/controle-financeiro/index.html'] });
+  await sw2.disparar('notificationclick', { notification: { close: fechar, data: {} } });
+  assert.deepEqual(sw2.abertas, []);
+  assert.deepEqual(sw2.focadas, ['https://matheusbellei.github.io/controle-financeiro/index.html']);
+});

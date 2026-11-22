@@ -1,0 +1,142 @@
+from harness import UITest
+
+FRASES = [dict(owner_id=None, texto='Preço é o que você paga.', autor='Warren Buffett'),
+          dict(owner_id=None, texto='Seja medroso quando os outros estão gananciosos.', autor='Warren Buffett'),
+          dict(owner_id=None, texto='O dinheiro grande está em esperar.', autor='Charlie Munger'),
+          dict(owner_id='u2', texto='Frase da Denise.', autor='Denise')]
+
+
+class Lembrete(UITest):
+    def preparar(self):
+        self.login()
+        self.seed('frases', FRASES)
+        self.go('config')
+
+    def cfg(self):
+        return next((c for c in self.db('lembrete_config') if c['owner_id'] == 'u1'), None)
+
+    def salvo(self):
+        self.page.wait_for_selector('#lembrete-status:has-text("Salvo")')
+
+    def funcoes(self):
+        return self.page.evaluate('window.__memFuncoes || []')
+
+    def test_ativar_e_desativar_neste_aparelho(self):
+        self.preparar()
+        p = self.page
+        self.assertIn('ainda não recebe', p.inner_text('#lembrete-aparelho'))
+        p.click('#lembrete-ativar-aparelho')
+        p.wait_for_selector('#lembrete-aparelho:has-text("Este aparelho recebe")')
+        insc = self.db('push_inscricoes')
+        self.assertEqual(len(insc), 1)
+        self.assertEqual(insc[0]['owner_id'], 'u1')
+        self.assertEqual(insc[0]['endpoint'], 'https://push.teste/aparelho-1')
+        self.assertEqual((insc[0]['p256dh'], insc[0]['auth']), ('chave-p256dh', 'segredo-auth'))
+        # pediu a chave pública à função e usou-a para inscrever o aparelho
+        self.assertEqual(self.funcoes()[0], ['lembrete-diario', 'GET', None])
+        self.assertEqual(p.evaluate('window.__pushChaveUsada'), [4, 1, 2, 3])
+        # ligar o aparelho também liga o lembrete
+        self.assertTrue(self.cfg()['ativo'])
+        p.click('#lembrete-desativar-aparelho')
+        p.wait_for_selector('#lembrete-aparelho:has-text("ainda não recebe")')
+        self.assertEqual(self.db('push_inscricoes'), [])
+
+    def test_permissao_negada_explica_o_que_fazer(self):
+        self.page.add_init_script('window.__pushNegar = true')
+        self.preparar()
+        self.page.click('#lembrete-ativar-aparelho')
+        self.page.wait_for_selector('#lembrete-aparelho:has-text("bloqueou")')
+        self.assertEqual(self.db('push_inscricoes'), [])
+
+    def test_iphone_sem_instalar_pede_para_instalar(self):
+        self.page.add_init_script('window.__pushPrecisaInstalar = true')
+        self.preparar()
+        self.assertIn('Tela de Início', self.page.inner_text('#lembrete-aparelho'))
+        self.assertEqual(self.page.locator('#lembrete-ativar-aparelho').count(), 0)
+
+    def test_configuracoes_salvam_sozinhas_e_voltam_depois(self):
+        self.preparar()
+        p = self.page
+        p.check('#lembrete-ativo'); self.salvo()
+        p.fill('#lembrete-hora', '07:30'); p.dispatch_event('#lembrete-hora', 'change'); self.salvo()
+        p.click('#lembrete-dias [data-dia="7"]'); self.salvo()
+        p.uncheck('#lembrete-pular'); self.salvo()
+        p.fill('#lembrete-titulo', 'Bora lançar'); p.dispatch_event('#lembrete-titulo', 'change'); self.salvo()
+        p.fill('#lembrete-mensagem', 'Rapidinho!'); p.dispatch_event('#lembrete-mensagem', 'change'); self.salvo()
+        c = self.cfg()
+        self.assertEqual((c['ativo'], c['hora'], c['dias'], c['pular_se_lancou'], c['titulo'], c['mensagem']),
+                         (True, '07:30', [1, 2, 3, 4, 5, 6], False, 'Bora lançar', 'Rapidinho!'))
+        p.reload(); self.pronto(); self.go('config')
+        self.assertTrue(p.is_checked('#lembrete-ativo'))
+        self.assertEqual(p.input_value('#lembrete-hora'), '07:30')
+        self.assertEqual(p.get_attribute('#lembrete-dias [data-dia="7"]', 'aria-pressed'), 'false')
+        self.assertEqual(p.get_attribute('#lembrete-dias [data-dia="1"]', 'aria-pressed'), 'true')
+        self.assertFalse(p.is_checked('#lembrete-pular'))
+        self.assertEqual(p.input_value('#lembrete-titulo'), 'Bora lançar')
+
+    def test_sem_nenhum_dia_nao_salva(self):
+        self.preparar()
+        p = self.page
+        for d in range(1, 7):
+            p.click(f'#lembrete-dias [data-dia="{d}"]'); self.salvo()
+        p.click('#lembrete-dias [data-dia="7"]')
+        p.wait_for_selector('#lembrete-status:has-text("pelo menos um dia")')
+        self.assertEqual(self.cfg()['dias'], [7])
+        self.assertEqual(p.get_attribute('#lembrete-dias [data-dia="7"]', 'aria-pressed'), 'true')
+
+    def test_previa_mostra_titulo_mensagem_e_frase(self):
+        self.preparar()
+        p = self.page
+        previa = p.inner_text('#lembrete-previa')
+        self.assertIn('Hora de lançar os gastos', previa)
+        self.assertIn('Leva um minuto', previa)
+        self.assertRegex(previa, r'“.+” — (Warren Buffett|Charlie Munger)')
+        p.uncheck('#frase-ativa'); self.salvo()
+        self.assertNotIn('“', p.inner_text('#lembrete-previa'))
+
+    def test_frases_origem_autores_e_minhas(self):
+        self.preparar()
+        p = self.page
+        texto = p.inner_text('#frases-cartao')
+        self.assertIn('Warren Buffett (2)', texto)
+        self.assertIn('Charlie Munger (1)', texto)
+        self.assertNotIn('Frase da Denise', texto)
+        p.click('#frase-autores [data-autor="Charlie Munger"]'); self.salvo()
+        self.assertEqual(self.cfg()['autores_desligados'], ['Charlie Munger'])
+        self.assertEqual(p.get_attribute('#frase-autores [data-autor="Charlie Munger"]', 'aria-pressed'), 'false')
+        p.select_option('#frase-fonte', 'minhas'); self.salvo()
+        self.assertEqual(self.cfg()['fonte_frases'], 'minhas')
+
+        p.fill('#frase-nova-texto', 'Pague-se primeiro.'); p.fill('#frase-nova-autor', 'Eu')
+        p.click('#frase-adicionar')
+        p.wait_for_selector('#minhas-frases :text("Pague-se primeiro.")')
+        minha = next(f for f in self.db('frases') if f['owner_id'] == 'u1')
+        self.assertEqual((minha['texto'], minha['autor']), ('Pague-se primeiro.', 'Eu'))
+        self.assertIn('“Pague-se primeiro.” — Eu', p.inner_text('#lembrete-previa'))
+
+        p.click('#minhas-frases .frase-editar')
+        p.fill('#frase-edit-texto', 'Pague-se primeiro, sempre.')
+        p.click('#frase-edit-salvar')
+        p.wait_for_selector('#minhas-frases :text("Pague-se primeiro, sempre.")')
+        self.assertEqual(next(f for f in self.db('frases') if f['owner_id'] == 'u1')['texto'], 'Pague-se primeiro, sempre.')
+
+        p.click('#minhas-frases .frase-excluir')
+        p.wait_for_selector('#minhas-frases :text("Nenhuma frase sua ainda")')
+        self.assertEqual([f for f in self.db('frases') if f['owner_id'] == 'u1'], [])
+
+    def test_frase_vazia_nao_entra(self):
+        self.preparar()
+        self.page.click('#frase-adicionar')
+        self.page.wait_for_selector('#frase-erro:has-text("Escreva a frase")')
+        self.assertEqual([f for f in self.db('frases') if f['owner_id'] == 'u1'], [])
+
+    def test_enviar_teste(self):
+        self.preparar()
+        p = self.page
+        p.click('#lembrete-testar')
+        p.wait_for_selector('#aviso:has-text("Ative as notificações neste aparelho")')
+        p.click('#lembrete-ativar-aparelho')
+        p.wait_for_selector('#lembrete-aparelho:has-text("Este aparelho recebe")')
+        p.click('#lembrete-testar')
+        p.wait_for_selector('#aviso:has-text("Teste enviado")')
+        self.assertIn(['lembrete-diario', 'POST', {'acao': 'teste'}], self.funcoes())

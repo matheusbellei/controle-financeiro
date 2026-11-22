@@ -69,6 +69,18 @@ button { cursor: pointer; }
 #cabecalho .btn-icone { color: var(--espuma); }
 #cabecalho .btn-icone:hover { background: var(--mocha); }
 #olho { margin-left: auto; }
+.linha-check { display: flex; gap: 8px; align-items: flex-start; margin-top: 12px; }
+.linha-check input { width: auto; margin-top: 3px; }
+.campo textarea { width: 100%; background: var(--espuma); border: 1px solid #D9BFA0; border-radius: 10px; padding: 10px 12px; font: inherit; resize: vertical; min-height: 64px; }
+.previa-notif { margin-top: 12px; background: var(--espuma); border: 1px solid #D9BFA0; border-radius: 14px; padding: 10px 12px; display: flex; gap: 10px; }
+.previa-notif img { width: 32px; height: 32px; border-radius: 8px; flex: none; }
+.previa-notif strong { display: block; }
+.previa-notif p { margin: 2px 0 0; white-space: pre-line; font-size: 14px; }
+.frase-linha { display: flex; gap: 6px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--latte); }
+.frase-linha > span { flex: 1; min-width: 0; }
+.lista-prontas { margin: 8px 0 0; padding-left: 18px; font-size: 14px; }
+.lista-prontas li { margin: 4px 0; }
+#lembrete-status { min-height: 1.2em; }
 .num, .lim { white-space: nowrap; }
 /* Ocultar valores: desfoca números e gráficos, mantém o layout. */
 body.ocultar-valores .num, body.ocultar-valores #resumo-filtro, body.ocultar-valores #app canvas {
@@ -261,6 +273,8 @@ function traduzErro(error) {
   if (/extraordinario_cents/i.test(msg)) return 'O banco ainda não aceita extraordinário parcial. No Supabase, rode o arquivo migracao-004-extraordinario-parcial.sql no SQL Editor.';
   if (/extraordinario/i.test(msg)) return 'O banco ainda não tem a opção de gasto extraordinário. No Supabase, rode o arquivo migracao-003-extraordinario-excluir-tags.sql no SQL Editor.';
   if (/kind_check/i.test(msg)) return 'O banco ainda não aceita doações. No Supabase, rode o arquivo migracao-002-doacoes.sql no SQL Editor.';
+  if (/(lembrete_config|push_inscricoes|frases|registrar_inscricao)/i.test(msg) && /schema cache|does not exist|Could not find/i.test(msg))
+    return 'O banco ainda não tem o lembrete diário. No Supabase, rode o arquivo migracao-006-lembrete-diario.sql no SQL Editor.';
   if (/permission denied for table tags/i.test(msg)) return 'O banco ainda não permite excluir tags. No Supabase, rode o arquivo migracao-003-extraordinario-excluir-tags.sql no SQL Editor.';
   if (/row-level security|permission denied/i.test(msg)) return 'Você só pode alterar os seus próprios dados.';
   if (/Failed to fetch|NetworkError|network/i.test(msg)) return 'Sem conexão com o banco. Verifique a internet e tente de novo.';
@@ -319,6 +333,22 @@ function createStore(client) {
       let q = client.from(table).delete();
       for (const k of Object.keys(where)) q = q.eq(k, where[k]);
       check(await q);
+    },
+    // Grava ou atualiza uma linha pela chave (ex.: a configuração do lembrete, uma por pessoa).
+    async upsert(table, row) {
+      const data = check(await client.from(table).upsert(row).select());
+      return (data && data[0]) || row;
+    },
+    async rpc(nome, args) { return check(await client.rpc(nome, args)); },
+    // Chama uma Edge Function do Supabase (com o login da pessoa).
+    async invokeFunction(nome, { method = 'POST', body } = {}) {
+      const { data, error } = await client.functions.invoke(nome, { method, body });
+      if (!error) return data;
+      const resp = error.context;
+      if (resp && resp.status === 404) throw new Error('A função de lembrete ainda não está no Supabase. Veja o passo a passo do lembrete.');
+      let msg = '';
+      try { msg = (await resp.json()).erro || ''; } catch (e) { /* sem corpo */ }
+      throw new Error(msg || traduzErro(error.message || String(error)));
     },
   };
 }
@@ -581,6 +611,44 @@ function parseBRL(text) {
   else if (!/^-?\d+\.\d{1,2}$/.test(s)) s = s.replace(/\./g, '');
   if (!s || !/^-?\d+(\.\d{0,2})?$/.test(s)) return null;
   return Math.round(Number(s) * 100);
+}
+// ---------- lembrete diário ----------
+// Mesmos padrões da tabela lembrete_config (migracao-006).
+var LEMBRETE_PADRAO = { ativo: false, hora: '21:00', dias: [1, 2, 3, 4, 5, 6, 7], pular_se_lancou: true,
+  titulo: 'Hora de lançar os gastos', mensagem: 'Leva um minuto: registre o que entrou e o que saiu hoje.',
+  com_frase: true, fonte_frases: 'todas', autores_desligados: [] };
+// Frases que podem entrar no lembrete de quem é ownerId (mesma regra da função montar_lembrete do banco).
+function frasesPermitidas(frases, cfg, ownerId) {
+  const desligados = new Set(cfg.autores_desligados || []);
+  return frases.filter((f) => f.owner_id == null
+    ? (cfg.fonte_frases === 'todas' || cfg.fonte_frases === 'prontas') && !desligados.has(f.autor)
+    : f.owner_id === ownerId && (cfg.fonte_frases === 'todas' || cfg.fonte_frases === 'minhas'));
+}
+function autoresDasFrases(frases) {
+  const n = new Map();
+  for (const f of frases) if (f.owner_id == null) n.set(f.autor, (n.get(f.autor) || 0) + 1);
+  return [...n].map(([autor, q]) => ({ autor, n: q })).sort((a, b) => b.n - a.n || a.autor.localeCompare(b.autor, 'pt-BR'));
+}
+// Título e texto da notificação, no mesmo formato que o banco monta.
+function textoLembrete(cfg, frase) {
+  const partes = [];
+  if (cfg.mensagem) partes.push(cfg.mensagem);
+  if (cfg.com_frase && frase) partes.push(`“${frase.texto}”` + (frase.autor ? ` — ${frase.autor}` : ''));
+  return { titulo: cfg.titulo, corpo: partes.join('\n\n') };
+}
+// No iPhone, notificação de site só funciona com o app instalado na Tela de Início.
+function precisaInstalarNoIphone(userAgent, instalado) {
+  return /iPhone|iPad|iPod/.test(userAgent) && !instalado;
+}
+function deb64url(texto) {
+  const alfabeto = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  const bytes = [];
+  let buf = 0, bits = 0;
+  for (const c of String(texto).replace(/[=\s]/g, '').replace(/\+/g, '-').replace(/\//g, '_')) {
+    buf = (buf << 6) | alfabeto.indexOf(c); bits += 6;
+    if (bits >= 8) { bits -= 8; bytes.push((buf >> bits) & 255); }
+  }
+  return new Uint8Array(bytes);
 }
 /* === FIM 4 === */
 
@@ -1974,6 +2042,8 @@ TELAS.config = async function (el) {
       <label class="campo"><span>Nome de exibição</span><input id="config-nome" value="${esc(eu.name)}"></label>
       <button class="btn" id="config-salvar-nome" style="margin-top:10px">Salvar nome</button>
       <p class="suave">Entrou como ${esc(state.user.email || '')}.</p></div>
+    <div class="cartao" id="lembrete-cartao"><h2>Lembrete diário</h2><p class="suave">Carregando…</p></div>
+    <div class="cartao" id="frases-cartao"><h2>Frases no lembrete</h2></div>
     <div class="cartao"><h2>Backup e exportação</h2>
       <p class="suave">O backup em JSON guarda tudo e pode ser importado de volta. Guarde uma cópia de vez em quando (Drive, e-mail ou GitHub).</p>
       <div class="chips"><button class="btn" id="exportar-json"><i class="ti ti-download"></i>Exportar backup (JSON)</button>
@@ -2030,7 +2100,224 @@ TELAS.config = async function (el) {
     }
     ev.target.value = '';
   });
+
+  await montarLembrete(el);
 };
+
+// ---------- Configurações → Lembrete diário e frases ----------
+// Tudo salva sozinho ao mudar. A notificação é enviada pela Edge Function "lembrete-diario" (ver supabase/functions).
+const DIAS_SEMANA = [[1, 'Seg'], [2, 'Ter'], [3, 'Qua'], [4, 'Qui'], [5, 'Sex'], [6, 'Sáb'], [7, 'Dom']];
+const CAMPOS_LEMBRETE = Object.keys(LEMBRETE_PADRAO);
+
+async function montarLembrete(el) {
+  const L = { cfg: { ...LEMBRETE_PADRAO }, frases: [], inscricoes: [], sub: null, editando: null };
+  const cartao = $('#lembrete-cartao', el);
+  try {
+    const [cfgs, frases, inscricoes, sub] = await Promise.all([
+      store.list('lembrete_config'), store.list('frases'), store.list('push_inscricoes'),
+      pushAparelho.suportado() ? pushAparelho.inscricaoAtual().catch(() => null) : null]);
+    const meu = cfgs.find((c) => c.owner_id === state.user.id);
+    if (meu) for (const k of CAMPOS_LEMBRETE) if (meu[k] != null) L.cfg[k] = meu[k];
+    L.cfg.hora = String(L.cfg.hora).slice(0, 5);
+    L.frases = frases;
+    L.inscricoes = filtrarDono(inscricoes);
+    L.sub = sub;
+  } catch (e) {
+    cartao.innerHTML = `<h2>Lembrete diário</h2><p class="erro">${esc(e.message)}</p>`;
+    $('#frases-cartao', el).hidden = true;
+    return;
+  }
+
+  const status = (texto, erro) => { const s = $('#lembrete-status', el); s.textContent = texto; s.className = erro ? 'erro' : 'suave'; };
+  async function salvar(campos) {
+    const novo = { ...L.cfg, ...campos };
+    if (!novo.dias.length) { status('Escolha pelo menos um dia.', true); return false; }
+    if (!String(novo.titulo).trim()) { status('O título não pode ficar vazio.', true); return false; }
+    const linha = { owner_id: state.user.id };
+    for (const k of CAMPOS_LEMBRETE) linha[k] = novo[k];
+    try { await store.upsert('lembrete_config', linha); } catch (e) { status(e.message, true); return false; }
+    L.cfg = novo;
+    status('Salvo ✓');
+    desenharPrevia();
+    return true;
+  }
+
+  cartao.innerHTML = `<h2>Lembrete diário</h2>
+    <p class="suave" style="margin-top:0">Uma notificação por dia para lembrar de lançar os gastos, com uma frase sobre dinheiro. Cada conta tem a própria configuração.</p>
+    <div id="lembrete-aparelho" class="cartao" style="background:var(--espuma); margin:12px 0 0"></div>
+    <label class="linha-check"><input type="checkbox" id="lembrete-ativo"><span>Lembrete ligado</span></label>
+    <label class="campo"><span>Horário</span><input type="time" id="lembrete-hora" step="900"></label>
+    <div class="campo"><span>Dias</span><div class="chips" id="lembrete-dias">${DIAS_SEMANA.map(([d, n]) =>
+      `<button type="button" class="chip" data-dia="${d}">${n}</button>`).join('')}</div></div>
+    <label class="linha-check"><input type="checkbox" id="lembrete-pular"><span>Não avisar se eu já lancei algo no dia</span></label>
+    <label class="campo"><span>Título da notificação</span><input id="lembrete-titulo" maxlength="60"></label>
+    <label class="campo"><span>Mensagem</span><textarea id="lembrete-mensagem" maxlength="200" rows="2"></textarea></label>
+    <div class="campo"><span>Como vai aparecer (a frase muda a cada dia)</span><div id="lembrete-previa"></div></div>
+    <div class="chips" style="margin-top:12px"><button class="btn" id="lembrete-testar"><i class="ti ti-send"></i>Enviar teste agora</button></div>
+    <p id="lembrete-status" class="suave" role="status"></p>`;
+
+  // ---- aparelho ----
+  const nomeAparelho = () => (pushAparelho.nomeAparelho ? pushAparelho.nomeAparelho() : '');
+  function desenharAparelho() {
+    const box = $('#lembrete-aparelho', el);
+    const ativo = L.sub && L.inscricoes.some((i) => i.endpoint === L.sub.endpoint);
+    let html;
+    if (pushAparelho.precisaInstalar()) {
+      html = '<strong>Instale o app para receber notificações</strong><p class="suave" style="margin:4px 0 0">No iPhone, as notificações só funcionam com o app instalado: no Safari, toque em Compartilhar → <b>Adicionar à Tela de Início</b> e abra o app pelo ícone novo.</p>';
+    } else if (!pushAparelho.suportado()) {
+      html = '<strong>Este navegador não aceita notificações.</strong><p class="suave" style="margin:4px 0 0">Use o Chrome no Android ou no computador, ou o app instalado no iPhone.</p>';
+    } else if (ativo) {
+      html = `<strong><i class="ti ti-bell-ringing"></i> Este aparelho recebe os lembretes.</strong>
+        <div class="chips" style="margin-top:8px"><button class="btn" id="lembrete-desativar-aparelho">Parar de receber neste aparelho</button></div>`;
+    } else if (pushAparelho.permissao() === 'denied') {
+      html = '<strong>Você bloqueou as notificações deste app.</strong><p class="suave" style="margin:4px 0 0">Para liberar: nas configurações do celular (ou no cadeado ao lado do endereço, no computador), permita notificações para este app e volte aqui.</p>';
+    } else {
+      html = `<strong>Este aparelho ainda não recebe os lembretes.</strong>
+        <div class="chips" style="margin-top:8px"><button class="btn btn-principal" id="lembrete-ativar-aparelho"><i class="ti ti-bell"></i>Receber neste aparelho</button></div>`;
+    }
+    box.innerHTML = html;
+    const ativar = $('#lembrete-ativar-aparelho', box);
+    if (ativar) ativar.addEventListener('click', async () => {
+      ativar.disabled = true;
+      try {
+        const { chave } = await store.invokeFunction('lembrete-diario', { method: 'GET' });
+        if (!chave) throw new Error('A função de lembrete ainda não tem a chave de notificação. Veja o passo a passo do lembrete.');
+        const sub = await pushAparelho.inscrever(deb64url(chave));
+        await store.rpc('registrar_inscricao', { p_endpoint: sub.endpoint, p_p256dh: sub.keys.p256dh, p_auth: sub.keys.auth, p_aparelho: nomeAparelho() });
+        L.sub = sub;
+        L.inscricoes = [...L.inscricoes.filter((i) => i.endpoint !== sub.endpoint), { endpoint: sub.endpoint, owner_id: state.user.id }];
+        if (!L.cfg.ativo) { await salvar({ ativo: true }); $('#lembrete-ativo', el).checked = true; }
+        avisar('Pronto! Este aparelho vai receber os lembretes.');
+      } catch (e) {
+        if (e.code !== 'negado') avisar(e.message || String(e), 'erro');
+      }
+      desenharAparelho();
+    });
+    const desativar = $('#lembrete-desativar-aparelho', box);
+    if (desativar) desativar.addEventListener('click', async () => {
+      desativar.disabled = true;
+      const endpoint = L.sub.endpoint;
+      await tentar(async () => {
+        await store.removeWhere('push_inscricoes', { endpoint });
+        await pushAparelho.cancelar();
+        L.sub = null;
+        L.inscricoes = L.inscricoes.filter((i) => i.endpoint !== endpoint);
+        avisar('Este aparelho não vai mais receber os lembretes.');
+      });
+      desenharAparelho();
+    });
+  }
+
+  // ---- campos ----
+  const c = L.cfg;
+  $('#lembrete-ativo', el).checked = c.ativo;
+  $('#lembrete-hora', el).value = c.hora;
+  $('#lembrete-pular', el).checked = c.pular_se_lancou;
+  $('#lembrete-titulo', el).value = c.titulo;
+  $('#lembrete-mensagem', el).value = c.mensagem;
+  const desenharDias = () => $$('#lembrete-dias [data-dia]', el).forEach((b) => {
+    const on = L.cfg.dias.includes(Number(b.dataset.dia));
+    b.classList.toggle('ativo', on); b.setAttribute('aria-pressed', String(on));
+  });
+  desenharDias();
+  $('#lembrete-ativo', el).addEventListener('change', (ev) => salvar({ ativo: ev.target.checked }));
+  $('#lembrete-hora', el).addEventListener('change', (ev) => { if (ev.target.value) salvar({ hora: ev.target.value.slice(0, 5) }); });
+  $('#lembrete-pular', el).addEventListener('change', (ev) => salvar({ pular_se_lancou: ev.target.checked }));
+  $('#lembrete-titulo', el).addEventListener('change', (ev) => salvar({ titulo: ev.target.value.trim() }));
+  $('#lembrete-mensagem', el).addEventListener('change', (ev) => salvar({ mensagem: ev.target.value.trim() }));
+  $$('#lembrete-dias [data-dia]', el).forEach((b) => b.addEventListener('click', async () => {
+    const d = Number(b.dataset.dia);
+    const dias = L.cfg.dias.includes(d) ? L.cfg.dias.filter((x) => x !== d) : [...L.cfg.dias, d].sort((x, y) => x - y);
+    await salvar({ dias });
+    desenharDias();
+  }));
+  $('#lembrete-testar', el).addEventListener('click', async (ev) => {
+    ev.target.disabled = true;
+    const r = await tentar(() => store.invokeFunction('lembrete-diario', { body: { acao: 'teste' } }));
+    if (r) avisar(`Teste enviado para ${r.enviados} ${r.enviados === 1 ? 'aparelho' : 'aparelhos'}. Pode levar alguns segundos.`);
+    ev.target.disabled = false;
+  });
+
+  // ---- prévia ----
+  function desenharPrevia() {
+    const possiveis = frasesPermitidas(L.frases, L.cfg, state.user.id);
+    const exemplo = possiveis.find((f) => f.owner_id === state.user.id) || possiveis[0] || null;
+    const t = textoLembrete(L.cfg, exemplo);
+    $('#lembrete-previa', el).innerHTML = `<div class="previa-notif"><img src="icone-192.png" alt="">
+      <div><strong>${esc(t.titulo)}</strong><p>${esc(t.corpo)}</p></div></div>`;
+  }
+
+  // ---- frases ----
+  const fc = $('#frases-cartao', el);
+  function desenharFrases() {
+    const autores = autoresDasFrases(L.frases);
+    const minhas = L.frases.filter((f) => f.owner_id === state.user.id);
+    const prontas = L.frases.filter((f) => f.owner_id == null);
+    const linhaMinha = (f) => L.editando === f.id
+      ? `<div class="frase-linha" data-id="${f.id}"><span>
+          <label class="campo" style="margin-top:0"><span>Frase</span><textarea id="frase-edit-texto" maxlength="280" rows="2">${esc(f.texto)}</textarea></label>
+          <label class="campo"><span>Autor (opcional)</span><input id="frase-edit-autor" maxlength="60" value="${esc(f.autor)}"></label>
+          <div class="chips" style="margin-top:8px"><button class="btn btn-principal" id="frase-edit-salvar">Salvar</button><button class="btn" id="frase-edit-cancelar">Cancelar</button></div>
+        </span></div>`
+      : `<div class="frase-linha" data-id="${f.id}"><span>“${esc(f.texto)}”${f.autor ? ` <span class="suave">— ${esc(f.autor)}</span>` : ''}</span>
+          <button class="btn-icone frase-editar" aria-label="Editar frase"><i class="ti ti-pencil"></i></button>
+          <button class="btn-icone frase-excluir" aria-label="Excluir frase"><i class="ti ti-trash"></i></button></div>`;
+    fc.innerHTML = `<h2>Frases no lembrete</h2>
+      <label class="linha-check"><input type="checkbox" id="frase-ativa" ${L.cfg.com_frase ? 'checked' : ''}><span>Incluir uma frase no lembrete</span></label>
+      <label class="campo"><span>Usar</span><select id="frase-fonte">
+        <option value="todas">Frases prontas e as minhas</option><option value="prontas">Só as frases prontas</option><option value="minhas">Só as minhas frases</option></select></label>
+      <div class="campo"><span>Autores das frases prontas (toque para ligar ou desligar)</span>
+        <div class="chips" id="frase-autores">${autores.map((a) => {
+          const on = !L.cfg.autores_desligados.includes(a.autor);
+          return `<button type="button" class="chip ${on ? 'ativo' : ''}" aria-pressed="${on}" data-autor="${esc(a.autor)}">${esc(a.autor)} (${a.n})</button>`;
+        }).join('') || '<span class="suave">Nenhuma frase pronta no banco ainda.</span>'}</div></div>
+      <h3 style="margin:16px 0 0">Minhas frases</h3>
+      <div id="minhas-frases">${minhas.map(linhaMinha).join('') || '<p class="suave">Nenhuma frase sua ainda.</p>'}</div>
+      <label class="campo"><span>Nova frase</span><textarea id="frase-nova-texto" maxlength="280" rows="2" placeholder="Ex.: Pague-se primeiro."></textarea></label>
+      <label class="campo"><span>Autor (opcional)</span><input id="frase-nova-autor" maxlength="60"></label>
+      <div class="erro" id="frase-erro" role="alert"></div>
+      <div class="chips" style="margin-top:8px"><button class="btn" id="frase-adicionar"><i class="ti ti-plus"></i>Adicionar frase</button></div>
+      <details style="margin-top:12px"><summary>Ver as ${prontas.length} frases prontas</summary>
+        <ul class="lista-prontas">${prontas.map((f) => `<li>“${esc(f.texto)}” <span class="suave">— ${esc(f.autor)}</span></li>`).join('')}</ul></details>`;
+    $('#frase-fonte', fc).value = L.cfg.fonte_frases;
+    $('#frase-ativa', fc).addEventListener('change', (ev) => salvar({ com_frase: ev.target.checked }));
+    $('#frase-fonte', fc).addEventListener('change', (ev) => salvar({ fonte_frases: ev.target.value }));
+    $$('#frase-autores [data-autor]', fc).forEach((b) => b.addEventListener('click', async () => {
+      const a = b.dataset.autor;
+      const off = L.cfg.autores_desligados.includes(a) ? L.cfg.autores_desligados.filter((x) => x !== a) : [...L.cfg.autores_desligados, a];
+      if (await salvar({ autores_desligados: off })) desenharFrases();
+    }));
+    $('#frase-adicionar', fc).addEventListener('click', async () => {
+      const texto = $('#frase-nova-texto', fc).value.trim();
+      const autor = $('#frase-nova-autor', fc).value.trim();
+      if (!texto) { $('#frase-erro', fc).textContent = 'Escreva a frase antes de adicionar.'; return; }
+      const [nova] = (await tentar(() => store.insert('frases', { owner_id: state.user.id, texto, autor }))) || [];
+      if (nova) { L.frases.push(nova); desenharFrases(); desenharPrevia(); }
+    });
+    $$('#minhas-frases .frase-editar', fc).forEach((b) => b.addEventListener('click', () => { L.editando = b.closest('[data-id]').dataset.id; desenharFrases(); }));
+    $$('#minhas-frases .frase-excluir', fc).forEach((b) => b.addEventListener('click', async () => {
+      const id = b.closest('[data-id]').dataset.id;
+      if (await tentar(async () => { await store.remove('frases', id); return true; })) {
+        L.frases = L.frases.filter((f) => f.id !== id); desenharFrases(); desenharPrevia();
+      }
+    }));
+    const salvarEd = $('#frase-edit-salvar', fc);
+    if (salvarEd) {
+      salvarEd.addEventListener('click', async () => {
+        const texto = $('#frase-edit-texto', fc).value.trim();
+        const autor = $('#frase-edit-autor', fc).value.trim();
+        if (!texto) { $('#frase-erro', fc).textContent = 'A frase não pode ficar vazia.'; return; }
+        const nova = await tentar(() => store.update('frases', L.editando, { texto, autor }));
+        if (nova) { L.frases = L.frases.map((f) => (f.id === nova.id ? nova : f)); L.editando = null; desenharFrases(); desenharPrevia(); }
+      });
+      $('#frase-edit-cancelar', fc).addEventListener('click', () => { L.editando = null; desenharFrases(); });
+    }
+  }
+
+  desenharAparelho();
+  desenharPrevia();
+  desenharFrases();
+}
 
 // Reinsere só o que falta: as tags e os registros da própria pessoa (backup antigo sem dono nas tags também serve).
 async function importarBackup(tabelas) {
@@ -2163,6 +2450,37 @@ function desenharGrafico(canvasId, tipo, labels, datasets, opcoes = {}) {
 // window.__TEST_STORE__ só existe nos testes automáticos (banco em memória).
 const store = window.__TEST_STORE__ ||
   createStore(window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY));
+
+// Notificações deste aparelho (Web Push). Nos testes, window.__TEST_PUSH__ simula o navegador.
+const pushAparelho = window.__TEST_PUSH__ || {
+  suportado: () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window,
+  precisaInstalar: () => precisaInstalarNoIphone(navigator.userAgent,
+    window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true),
+  permissao: () => ('Notification' in window ? Notification.permission : 'denied'),
+  async inscricaoAtual() {
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = reg && await reg.pushManager.getSubscription();
+    return sub ? sub.toJSON() : null;
+  },
+  async inscrever(chave) {
+    const permissao = await Notification.requestPermission();
+    if (permissao !== 'granted') { const e = new Error('negado'); e.code = 'negado'; throw e; }
+    const reg = await navigator.serviceWorker.ready;
+    const antiga = await reg.pushManager.getSubscription();
+    if (antiga) await antiga.unsubscribe(); // a chave pode ter mudado
+    return (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: chave })).toJSON();
+  },
+  async cancelar() {
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = reg && await reg.pushManager.getSubscription();
+    if (sub) await sub.unsubscribe();
+  },
+  nomeAparelho() {
+    const ua = navigator.userAgent;
+    return /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android'
+      : /Windows/.test(ua) ? 'Windows' : /Mac/.test(ua) ? 'Mac' : 'Outro';
+  },
+};
 
 // App instalável: registra o service worker (fora dos testes automáticos).
 if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !window.__TEST_STORE__) {

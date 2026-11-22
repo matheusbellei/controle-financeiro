@@ -84,6 +84,15 @@ Decisões que o Claude tomou por conta própria. Cada item traz o que acontece s
 ## Ajustes de 20/11 (5)
 - **"Saiu" soma tudo que saiu:** na tela Mês e na aba Ano, o cartão Saiu = gastos + investido + doações e vem depois de Investido e Doações, para a conta fechar (Entrou − Saiu = Livre). Abaixo dele aparece "só gastos R$ X". Nos cartões de cada mês da aba Ano, o "Saiu" também soma tudo (saiu a linha "Doado"). A aba Orçamento ("Gasto até agora") e os Dashboards continuam contando só gastos.
 
+## Ajustes de 22/11
+- **Lembrete diário por notificação (migracao-006 + Edge Function `lembrete-diario`):** o banco chama a função a cada 15 minutos; ela pergunta ao banco quem deve ser avisado e envia. Cada pessoa tem a própria configuração, em Configurações → Lembrete diário. Tudo salva sozinho.
+- **Janela de envio:** do horário escolhido até 1 hora depois, uma vez por dia. *Se errado:* se o agendamento ficar parado por mais de 1 hora, o lembrete daquele dia não sai. Ligar o lembrete depois do horário também só avisa no dia seguinte.
+- **"Não avisar se eu já lancei algo no dia"** (vem ligado): conta o lançamento **criado** hoje, não a data da compra. Lançar hoje uma compra de ontem também conta.
+- **Frases:** 30 prontas (Buffett, Munger, Graham, Franklin, Bogle, Lynch, Housel, Sêneca, Kiyosaki, Ramsey, Samuelson, Rohn), só com autoria conhecida. Cada um liga/desliga autores, escolhe a origem (prontas e minhas, só prontas, só minhas) e cria as próprias, que o outro não vê. A frase é sorteada e não repete a do dia anterior. Uma frase pronta não pode ser editada pelo app.
+- **Aparelhos:** cada aparelho ativado recebe o lembrete; ativar também liga o lembrete. Se o mesmo aparelho for usado pelas duas contas, fica com quem ativou por último. Aparelho que desinstalou o app é removido no primeiro envio que falhar. *Se errado:* sair da conta não desativa o aparelho; é preciso tocar em "Parar de receber neste aparelho".
+- **Sem bibliotecas na função:** criptografia (RFC 8291) e assinatura (RFC 8292) com WebCrypto, testadas com o exemplo do RFC. A função confere sozinha o segredo do agendamento e o login de quem pede o teste, por isso a verificação de JWT do Supabase fica desligada.
+- **iPhone:** só funciona com o app instalado na Tela de Início (iOS 16.4+); a tela avisa quando não está.
+
 ## Tags e orçamento
 - **Só um nível de subtag.** Uma tag que tem subtags não pode virar subtag.
 - **Limite mensal** fica no formulário da tag principal. Apagar o valor remove o limite.

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chaves do lembrete</title>
+<style>
+  :root { --espresso: #3B2416; --mocha: #6F4E37; --caramelo: #C68B59; --latte: #EAD7C0; --espuma: #FBF6F0; --fundo: #F5EBDD; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fundo); color: var(--espresso); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 22px; margin: 0 0 8px; }
+  p { margin: 8px 0; }
+  .suave { color: var(--mocha); font-size: 14px; }
+  .cartao { background: var(--espuma); border-radius: 14px; padding: 14px; margin-top: 14px; }
+  .rotulo { font-size: 13px; font-weight: 600; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  code { display: block; word-break: break-all; background: #fff; border: 1px solid #D9BFA0; border-radius: 10px; padding: 10px; font-size: 13px; }
+  button { font: inherit; border: none; border-radius: 10px; padding: 10px 16px; background: var(--espresso); color: var(--espuma); cursor: pointer; }
+  button.copiar { background: var(--latte); color: var(--espresso); padding: 4px 10px; font-size: 13px; }
+  .aviso { background: #FFF1E6; border-left: 4px solid var(--caramelo); padding: 10px 12px; border-radius: 8px; font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Chaves do lembrete diário</h1>
+  <p class="suave">Gera as chaves que a função <b>lembrete-diario</b> do Supabase usa para enviar notificações. Tudo é feito aqui no seu navegador: nada é enviado para lugar nenhum.</p>
+  <p class="aviso">Gere <b>uma vez só</b>. Se gerar de novo e trocar no Supabase, os aparelhos precisam ativar as notificações de novo. Não coloque estas chaves no GitHub nem mande para ninguém.</p>
+  <button id="gerar">Gerar chaves</button>
+  <div id="saida" hidden>
+    <div class="cartao"><div class="rotulo">VAPID_PUBLIC_KEY <button class="copiar" data-alvo="publica">Copiar</button></div><code id="publica"></code></div>
+    <div class="cartao"><div class="rotulo">VAPID_PRIVATE_KEY <button class="copiar" data-alvo="privada">Copiar</button></div><code id="privada"></code></div>
+    <div class="cartao"><div class="rotulo">LEMBRETE_SEGREDO <button class="copiar" data-alvo="segredo">Copiar</button></div><code id="segredo"></code></div>
+    <p class="suave">Deixe esta aba aberta até terminar os passos no Supabase.</p>
+  </div>
+</main>
+<script>
+function b64url(bytes) {
+  let s = '';
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+// Par de chaves P-256 (padrão VAPID do Web Push) e um segredo aleatório de 32 bytes.
+async function gerarChaves() {
+  const par = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+  const publica = b64url(new Uint8Array(await crypto.subtle.exportKey('raw', par.publicKey)));
+  const privada = (await crypto.subtle.exportKey('jwk', par.privateKey)).d;
+  const segredo = b64url(crypto.getRandomValues(new Uint8Array(32)));
+  return { publica, privada, segredo };
+}
+const botao = document.querySelector('#gerar');
+if (botao) {
+  botao.addEventListener('click', async () => {
+    const k = await gerarChaves();
+    for (const id of ['publica', 'privada', 'segredo']) document.querySelector('#' + id).textContent = k[id];
+    document.querySelector('#saida').hidden = false;
+    botao.textContent = 'Gerar de novo (só se ainda não usou no Supabase)';
+  });
+  document.addEventListener('click', async (ev) => {
+    const b = ev.target.closest && ev.target.closest('.copiar');
+    if (!b) return;
+    await navigator.clipboard.writeText(document.querySelector('#' + b.dataset.alvo).textContent);
+    b.textContent = 'Copiado ✓';
+    setTimeout(() => { b.textContent = 'Copiar'; }, 1500);
+  });
+}
+</script>
+</body>
+</html>

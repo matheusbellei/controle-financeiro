@@ -2,6 +2,7 @@
 // - A página (index.html) vem sempre da internet primeiro, para pegar a versão nova; sem internet, usa a cópia guardada.
 // - Ícones, fontes e bibliotecas (CDN) vêm da cópia guardada, e são atualizados em segundo plano.
 // - Dados do Supabase e envios (POST, PATCH...) nunca passam pelo cache.
+// - Mostra o lembrete diário (notificação push) e abre o app quando a pessoa toca nele.
 const CACHE = 'financas-v1';
 const ESSENCIAIS = ['./', './index.html', './manifest.json', './icone-192.png', './icone-512.png'];
 
@@ -49,4 +50,28 @@ self.addEventListener('fetch', (ev) => {
   const tipo = estrategia(ev.request, self.location && self.location.origin);
   if (tipo === 'rede-primeiro') ev.respondWith(redePrimeiro(ev.request));
   else if (tipo === 'cache-primeiro') ev.respondWith(cachePrimeiro(ev.request));
+});
+
+// ---------- lembrete diário (push) ----------
+self.addEventListener('push', (ev) => {
+  let d = {};
+  try { d = (ev.data && ev.data.json()) || {}; } catch (e) { d = { corpo: ev.data ? ev.data.text() : '' }; }
+  ev.waitUntil(self.registration.showNotification(d.titulo || 'Finanças pessoais', {
+    body: d.corpo || 'Hora de lançar os gastos do dia.',
+    icon: './icone-192.png',
+    badge: './icone-192.png',
+    tag: 'lembrete-diario',
+    renotify: true,
+    data: { url: d.url || './' },
+  }));
+});
+
+self.addEventListener('notificationclick', (ev) => {
+  ev.notification.close();
+  const escopo = self.registration.scope;
+  const alvo = new URL((ev.notification.data && ev.notification.data.url) || './', escopo).href;
+  ev.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then((janelas) => {
+    const aberta = janelas.find((j) => j.url.startsWith(escopo) && 'focus' in j);
+    return aberta ? aberta.focus() : clients.openWindow(alvo);
+  }));
 });
