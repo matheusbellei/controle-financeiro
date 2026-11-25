@@ -161,3 +161,53 @@ test('função (teste pelo app): sem aparelho ativado, explica o que fazer', asy
   assert.equal(r.status, 409);
   assert.match((await r.json()).erro, /Ative as notificações neste aparelho/);
 });
+
+// ---------- troca de inscrição em segundo plano (service worker, sem login) ----------
+async function montarTroca(respostaPatch) {
+  const f = await montar();
+  const chamadas = [];
+  const fetchFalso = async (url, op = {}) => {
+    chamadas.push({ url: String(url), metodo: op.method || 'GET', corpo: op.body, h: op.headers || {} });
+    if (op.method === 'PATCH') return respostaPatch();
+    return new Response(null, { status: 204 });
+  };
+  return { chamadas, chamar: (req) => tratar(req, (k) => f.env[k], fetchFalso) };
+}
+const troca = (corpo) => req('POST', { 'content-type': 'application/json' }, JSON.stringify(corpo));
+const NOVA = { endpoint: 'https://fcm.googleapis.com/fcm/send/novo', keys: { p256dh: 'BNova', auth: 'aNova' } };
+
+test('função (troca): troca o endereço antigo pelo novo, sem login', async () => {
+  const t = await montarTroca(() => new Response(JSON.stringify([{ owner_id: 'u1' }]), { status: 200 }));
+  const r = await t.chamar(troca({ acao: 'trocar', antigo: 'https://fcm.googleapis.com/fcm/send/velho', nova: NOVA }));
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { trocado: true });
+  const p = t.chamadas.find((c) => c.metodo === 'PATCH');
+  assert.equal(p.url, 'https://proj.supabase.co/rest/v1/push_inscricoes?endpoint=eq.' + encodeURIComponent('https://fcm.googleapis.com/fcm/send/velho'));
+  assert.deepEqual(JSON.parse(p.corpo), { endpoint: NOVA.endpoint, p256dh: 'BNova', auth: 'aNova' });
+  assert.equal(p.h.apikey, 'sb_secret_abc');
+  assert.equal(p.h.Prefer, 'return=representation');
+});
+
+test('função (troca): endereço antigo desconhecido não cria nada', async () => {
+  const t = await montarTroca(() => new Response('[]', { status: 200 }));
+  const r = await t.chamar(troca({ acao: 'trocar', antigo: 'https://fcm.googleapis.com/x', nova: NOVA }));
+  assert.equal(r.status, 404);
+  assert.equal(t.chamadas.filter((c) => c.metodo === 'POST').length, 0);
+});
+
+test('função (troca): se o app já registrou o novo, só apaga o antigo', async () => {
+  const t = await montarTroca(() => new Response('{"code":"23505"}', { status: 409 }));
+  const r = await t.chamar(troca({ acao: 'trocar', antigo: 'https://fcm.googleapis.com/velho', nova: NOVA }));
+  assert.equal(r.status, 200);
+  const d = t.chamadas.find((c) => c.metodo === 'DELETE');
+  assert.equal(d.url, 'https://proj.supabase.co/rest/v1/push_inscricoes?endpoint=eq.' + encodeURIComponent('https://fcm.googleapis.com/velho'));
+});
+
+test('função (troca): pedido malformado é recusado', async () => {
+  const t = await montarTroca(() => new Response('[]', { status: 200 }));
+  for (const corpo of [{ acao: 'trocar' }, { acao: 'trocar', antigo: 'http://inseguro', nova: NOVA },
+    { acao: 'trocar', antigo: 'https://a.b/c', nova: { endpoint: 'https://a.b/d', keys: {} } }]) {
+    assert.equal((await t.chamar(troca(corpo))).status, 400, JSON.stringify(corpo));
+  }
+  assert.equal(t.chamadas.length, 0);
+});

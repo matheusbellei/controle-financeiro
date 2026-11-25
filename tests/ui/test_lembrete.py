@@ -141,3 +141,56 @@ class Lembrete(UITest):
         p.click('#lembrete-testar')
         p.wait_for_selector('#aviso:has-text("Teste enviado")')
         self.assertIn(['lembrete-diario', 'POST', {'acao': 'teste'}], self.funcoes())
+
+
+class ReconexaoDoAparelho(UITest):
+    """O Chrome às vezes troca a inscrição do aparelho, ou a função apaga uma que falhou.
+    Se a pessoa pediu para receber e a permissão continua concedida, o app se reconecta sozinho ao abrir."""
+
+    def ativar(self):
+        self.login()
+        self.go('config')
+        self.page.click('#lembrete-ativar-aparelho')
+        self.page.wait_for_selector('#lembrete-aparelho:has-text("Este aparelho recebe")')
+
+    def reabrir(self):
+        self.page.reload(); self.pronto()
+        self.page.wait_for_function("(window.__memFuncoes || []).length >= 0")
+        self.page.wait_for_timeout(300)
+
+    def test_inscricao_apagada_do_banco_volta_sozinha(self):
+        self.ativar()
+        self.page.evaluate("window.__memdbApagar('push_inscricoes')")
+        self.assertEqual(self.db('push_inscricoes'), [])
+        self.reabrir()  # abre na tela Mês, sem tocar em nada
+        insc = self.db('push_inscricoes')
+        self.assertEqual([(i['owner_id'], i['endpoint']) for i in insc], [('u1', 'https://push.teste/aparelho-1')])
+
+    def test_inscricao_perdida_no_celular_e_refeita_sem_perguntar(self):
+        self.ativar()
+        self.page.evaluate("sessionStorage.removeItem('mempush'); window.__memdbApagar('push_inscricoes')")
+        self.reabrir()
+        self.assertEqual(len(self.db('push_inscricoes')), 1)
+        self.go('config')
+        self.page.wait_for_selector('#lembrete-aparelho:has-text("Este aparelho recebe")')
+
+    def test_guarda_o_endereco_para_o_service_worker(self):
+        self.ativar()
+        guardado = self.page.evaluate("""async () => {
+            const r = await (await caches.open('financas-inscricao')).match('./__inscricao');
+            return r ? (await r.json()).endpoint : null; }""")
+        self.assertEqual(guardado, 'https://push.teste/aparelho-1')
+
+    def test_quem_parou_de_receber_nao_e_reinscrito(self):
+        self.ativar()
+        self.page.click('#lembrete-desativar-aparelho')
+        self.page.wait_for_selector('#lembrete-aparelho:has-text("ainda não recebe")')
+        self.reabrir()
+        self.assertEqual(self.db('push_inscricoes'), [])
+
+    def test_sem_ter_ativado_neste_aparelho_nao_faz_nada(self):
+        self.login()
+        self.page.evaluate("sessionStorage.setItem('mempush-perm', 'granted')")
+        self.reabrir()
+        self.assertEqual(self.db('push_inscricoes'), [])
+        self.assertEqual(self.page.evaluate('window.__memFuncoes || []'), [])

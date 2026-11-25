@@ -6,6 +6,8 @@
 //     A função pergunta ao banco quem deve ser avisado agora (lembretes_devidos) e envia.
 //   • O app, no botão "Enviar teste agora", com o login da pessoa: envia só para os aparelhos dela.
 //   • O app, para pegar a chave pública de notificação (GET).
+//   • O service worker do celular, em segundo plano, quando o navegador troca a inscrição do aparelho
+//     ({acao:'trocar', antigo, nova}). O endereço antigo é a prova: só quem o tinha consegue trocá-lo.
 //
 // Segredos (Edge Functions → Secrets no painel do Supabase):
 //   VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (mailto:seu-email) e LEMBRETE_SEGREDO.
@@ -162,12 +164,44 @@ async function rpc(nome, args, env, fetchFn) {
   return resp.json();
 }
 
+const ehHttps = (u) => typeof u === 'string' && u.length <= 1000 && /^https:\/\/[^\s]+$/.test(u);
+const ehChave = (k) => typeof k === 'string' && k.length > 0 && k.length <= 200 && /^[\w-]+=*$/.test(k);
+
+async function trocarInscricao({ antigo, nova }, env, fetchFn) {
+  const keys = (nova && nova.keys) || {};
+  if (!ehHttps(antigo) || !nova || !ehHttps(nova.endpoint) || !ehChave(keys.p256dh) || !ehChave(keys.auth)) {
+    return json({ erro: 'pedido inválido' }, 400);
+  }
+  const alvo = `${env('SUPABASE_URL')}/rest/v1/push_inscricoes?endpoint=eq.${encodeURIComponent(antigo)}`;
+  const h = cabecalhosBanco(chaves(env).secreta);
+  const resp = await fetchFn(alvo, {
+    method: 'PATCH',
+    headers: { ...h, Prefer: 'return=representation' },
+    body: JSON.stringify({ endpoint: nova.endpoint, p256dh: keys.p256dh, auth: keys.auth }),
+  });
+  if (resp.status === 409) {
+    // O app já registrou o endereço novo ao abrir: basta tirar o antigo.
+    await fetchFn(alvo, { method: 'DELETE', headers: h });
+    return json({ trocado: true });
+  }
+  if (!resp.ok) throw new Error(`troca: ${resp.status} ${await resp.text()}`);
+  const linhas = await resp.json();
+  if (!Array.isArray(linhas) || !linhas.length) return json({ erro: 'inscrição antiga não encontrada' }, 404);
+  return json({ trocado: true });
+}
+
 export async function tratar(req, env, fetchFn = fetch) {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (req.method === 'GET') return json({ chave: env('VAPID_PUBLIC_KEY') || '' });
   if (req.method !== 'POST') return json({ erro: 'método não aceito' }, 405);
 
   try {
+    let corpo = {};
+    try { corpo = await req.clone().json(); } catch { corpo = {}; }
+
+    // 0) Troca de inscrição feita pelo service worker, sem login.
+    if (corpo && corpo.acao === 'trocar') return await trocarInscricao(corpo, env, fetchFn);
+
     // 1) Agendamento do banco.
     const segredo = req.headers.get('x-lembrete-segredo');
     if (segredo) {

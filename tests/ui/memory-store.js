@@ -17,6 +17,7 @@
   const deny = () => { throw new Error('Você só pode alterar os seus próprios dados.'); };
   const need = () => { if (!user) throw new Error('Sua sessão expirou. Entre de novo.'); };
   window.__memdb = db;
+  window.__memdbApagar = (table) => { db[table].length = 0; save(); };
   window.__memSeed = (table, rows) => {
     rows.forEach((r) => db[table].push({ id: uid(), ...(table === 'tags' ? { owner_id: r.created_by || 'u1' } : {}), ...r })); save();
   };

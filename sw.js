@@ -75,3 +75,41 @@ self.addEventListener('notificationclick', (ev) => {
     return aberta ? aberta.focus() : clients.openWindow(alvo);
   }));
 });
+
+// ---------- inscrição trocada pelo navegador (segundo plano, sem abrir o app) ----------
+// O Chrome às vezes renova a inscrição do aparelho e avisa aqui. O service worker cria/pega a nova e pede à
+// função que troque o endereço antigo pelo novo (o antigo é a prova; não precisa de login).
+// O app guarda o último endereço registrado neste cofre, para quando o navegador não informa o antigo.
+const FUNCAO_LEMBRETE = 'https://qtgkpnejimlrkjdhrqfh.supabase.co/functions/v1/lembrete-diario';
+const COFRE = 'financas-inscricao';
+const CHAVE_COFRE = './__inscricao';
+
+async function lerGuardado() {
+  try { const r = await (await caches.open(COFRE)).match(CHAVE_COFRE); return r ? await r.json() : {}; } catch (e) { return {}; }
+}
+async function guardar(endpoint) {
+  try { await (await caches.open(COFRE)).put(CHAVE_COFRE, new Response(JSON.stringify({ endpoint }))); } catch (e) { /* ignora */ }
+}
+
+async function trocarInscricao(ev) {
+  const antigo = (ev.oldSubscription && ev.oldSubscription.endpoint) || (await lerGuardado()).endpoint;
+  if (!antigo) return;
+  let nova = ev.newSubscription || await self.registration.pushManager.getSubscription();
+  if (!nova) {
+    const { chave } = await (await fetch(FUNCAO_LEMBRETE)).json();
+    if (!chave) return;
+    nova = await self.registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: chave });
+  }
+  const j = nova.toJSON();
+  if (j.endpoint === antigo) return;
+  const r = await fetch(FUNCAO_LEMBRETE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ acao: 'trocar', antigo, nova: { endpoint: j.endpoint, keys: j.keys } }),
+  });
+  if (r.ok) await guardar(j.endpoint);
+}
+
+self.addEventListener('pushsubscriptionchange', (ev) => {
+  ev.waitUntil(trocarInscricao(ev).catch(() => { /* sem rede: o app se reconecta ao abrir */ }));
+});

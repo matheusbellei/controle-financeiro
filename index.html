@@ -2109,9 +2109,44 @@ TELAS.config = async function (el) {
 const DIAS_SEMANA = [[1, 'Seg'], [2, 'Ter'], [3, 'Qua'], [4, 'Qui'], [5, 'Sex'], [6, 'Sáb'], [7, 'Dom']];
 const CAMPOS_LEMBRETE = Object.keys(LEMBRETE_PADRAO);
 
+// Mantém viva a inscrição deste aparelho. O Chrome às vezes troca o "endereço" de notificação e a função
+// apaga do banco os que falham; se a pessoa pediu para receber aqui e a permissão continua concedida,
+// o app refaz e registra a inscrição sozinho, sem perguntar nada. Quem tocou em "Parar de receber" fica de fora.
+const CHAVE_APARELHO = 'lembrete-aparelho';
+function querReceberAqui() { try { return localStorage.getItem(CHAVE_APARELHO) === 'ligado'; } catch (e) { return false; } }
+function gravarQuerReceberAqui(sim) { try { localStorage.setItem(CHAVE_APARELHO, sim ? 'ligado' : 'desligado'); } catch (e) { /* ignora */ } }
+// Último endereço registrado, num cofre que o service worker também lê (sw.js, troca em segundo plano).
+async function guardarEnderecoParaOSW(endpoint) {
+  try {
+    const cofre = await caches.open('financas-inscricao');
+    if (endpoint) await cofre.put('./__inscricao', new Response(JSON.stringify({ endpoint })));
+    else await cofre.delete('./__inscricao');
+  } catch (e) { /* sem Cache Storage: fica só a reconexão ao abrir */ }
+}
+async function registrarAparelho(sub) {
+  await store.rpc('registrar_inscricao', { p_endpoint: sub.endpoint, p_p256dh: sub.keys.p256dh, p_auth: sub.keys.auth,
+    p_aparelho: pushAparelho.nomeAparelho ? pushAparelho.nomeAparelho() : '' });
+  await guardarEnderecoParaOSW(sub.endpoint);
+}
+async function reconectarAparelho() {
+  if (!state.user || !querReceberAqui() || !pushAparelho.suportado() || pushAparelho.precisaInstalar()
+      || pushAparelho.permissao() !== 'granted') return null;
+  let sub = await pushAparelho.inscricaoAtual();
+  if (!sub) {
+    const { chave } = await store.invokeFunction('lembrete-diario', { method: 'GET' });
+    if (!chave) return null;
+    sub = await pushAparelho.inscrever(deb64url(chave)); // permissão já concedida: não aparece pergunta
+  }
+  const minhas = filtrarDono(await store.list('push_inscricoes'));
+  if (!minhas.some((i) => i.endpoint === sub.endpoint)) await registrarAparelho(sub);
+  else await guardarEnderecoParaOSW(sub.endpoint);
+  return sub;
+}
+
 async function montarLembrete(el) {
   const L = { cfg: { ...LEMBRETE_PADRAO }, frases: [], inscricoes: [], sub: null, editando: null };
   const cartao = $('#lembrete-cartao', el);
+  await reconectarAparelho().catch(() => null);
   try {
     const [cfgs, frases, inscricoes, sub] = await Promise.all([
       store.list('lembrete_config'), store.list('frases'), store.list('push_inscricoes'),
@@ -2158,7 +2193,6 @@ async function montarLembrete(el) {
     <p id="lembrete-status" class="suave" role="status"></p>`;
 
   // ---- aparelho ----
-  const nomeAparelho = () => (pushAparelho.nomeAparelho ? pushAparelho.nomeAparelho() : '');
   function desenharAparelho() {
     const box = $('#lembrete-aparelho', el);
     const ativo = L.sub && L.inscricoes.some((i) => i.endpoint === L.sub.endpoint);
@@ -2184,7 +2218,8 @@ async function montarLembrete(el) {
         const { chave } = await store.invokeFunction('lembrete-diario', { method: 'GET' });
         if (!chave) throw new Error('A função de lembrete ainda não tem a chave de notificação. Veja o passo a passo do lembrete.');
         const sub = await pushAparelho.inscrever(deb64url(chave));
-        await store.rpc('registrar_inscricao', { p_endpoint: sub.endpoint, p_p256dh: sub.keys.p256dh, p_auth: sub.keys.auth, p_aparelho: nomeAparelho() });
+        await registrarAparelho(sub);
+        gravarQuerReceberAqui(true);
         L.sub = sub;
         L.inscricoes = [...L.inscricoes.filter((i) => i.endpoint !== sub.endpoint), { endpoint: sub.endpoint, owner_id: state.user.id }];
         if (!L.cfg.ativo) { await salvar({ ativo: true }); $('#lembrete-ativo', el).checked = true; }
@@ -2201,6 +2236,8 @@ async function montarLembrete(el) {
       await tentar(async () => {
         await store.removeWhere('push_inscricoes', { endpoint });
         await pushAparelho.cancelar();
+        gravarQuerReceberAqui(false);
+        await guardarEnderecoParaOSW(null);
         L.sub = null;
         L.inscricoes = L.inscricoes.filter((i) => i.endpoint !== endpoint);
         avisar('Este aparelho não vai mais receber os lembretes.');
@@ -2368,6 +2405,7 @@ async function entrouNoApp(user) {
   $('#cabecalho-usuario').textContent = eu ? primeiroNome(eu.name) : '';
   hojeMes();
   await router.go('mes');
+  reconectarAparelho().catch(() => { /* sem internet ou sem a função: tenta de novo na próxima abertura */ });
 }
 function ligarCasca() {
   $('#login-form').addEventListener('submit', async (ev) => {

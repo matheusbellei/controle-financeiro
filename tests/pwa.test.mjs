@@ -107,3 +107,62 @@ test('ícone da barra de status: branco sobre fundo transparente, como o Android
   assert.equal(png.readUInt32BE(20), 96); // altura
   assert.equal(png[25], 6, 'PNG com transparência (RGBA)');
 });
+
+// Service worker com cofre (Cache Storage), rede e pushManager falsos, para a troca de inscrição.
+function swTroca({ salvo = null, atual = null, respostaTroca = 200 } = {}) {
+  const eventos = {}; const pedidos = []; const guardado = { v: salvo }; const inscritas = [];
+  const sub = (endpoint) => ({ endpoint, toJSON: () => ({ endpoint, keys: { p256dh: 'BNova', auth: 'aNova' } }) });
+  const ctx = {
+    URL, Promise, JSON, Response: class { constructor(b, o = {}) { this.b = b; this.status = o.status || 200; this.ok = this.status < 300; } async json() { return JSON.parse(this.b); } },
+    caches: { open: async () => ({
+      match: async () => (guardado.v ? { json: async () => guardado.v } : undefined),
+      put: async (_k, r) => { guardado.v = JSON.parse(r.b); },
+    }) },
+    fetch: async (url, op = {}) => {
+      pedidos.push({ url: String(url), metodo: op.method || 'GET', corpo: op.body && JSON.parse(op.body) });
+      if (!op.method || op.method === 'GET') return new ctx.Response(JSON.stringify({ chave: 'BChavePublica' }));
+      return new ctx.Response('{}', { status: respostaTroca });
+    },
+    self: {
+      addEventListener: (nome, fn) => { eventos[nome] = fn; },
+      registration: { scope: 'https://x/', showNotification: async () => {},
+        pushManager: { getSubscription: async () => (atual ? sub(atual) : null),
+          subscribe: async (op) => { inscritas.push(op); return sub('https://fcm.googleapis.com/criada-no-sw'); } } },
+    },
+    clients: { matchAll: async () => [], openWindow: async () => {} },
+  };
+  vm.createContext(ctx);
+  vm.runInContext(ler('sw.js').toString(), ctx);
+  const disparar = async (ev) => { let p; ev.waitUntil = (x) => { p = x; }; eventos.pushsubscriptionchange(ev); await p; };
+  return { disparar, pedidos, guardado, inscritas };
+}
+const FUNCAO = 'https://qtgkpnejimlrkjdhrqfh.supabase.co/functions/v1/lembrete-diario';
+
+test('service worker: inscrição trocada pelo navegador é avisada à função, sem login', async () => {
+  const sw = swTroca();
+  await sw.disparar({ oldSubscription: { endpoint: 'https://fcm.googleapis.com/velho' },
+    newSubscription: { toJSON: () => ({ endpoint: 'https://fcm.googleapis.com/novo', keys: { p256dh: 'BNova', auth: 'aNova' } }) } });
+  const p = sw.pedidos.find((x) => x.metodo === 'POST');
+  assert.equal(p.url, FUNCAO);
+  assert.deepEqual(p.corpo, { acao: 'trocar', antigo: 'https://fcm.googleapis.com/velho',
+    nova: { endpoint: 'https://fcm.googleapis.com/novo', keys: { p256dh: 'BNova', auth: 'aNova' } } });
+  assert.deepEqual(sw.guardado.v, { endpoint: 'https://fcm.googleapis.com/novo' }, 'guarda o novo para a próxima troca');
+});
+
+test('service worker: sem a inscrição antiga no evento, usa a guardada; sem a nova, cria uma com a chave da função', async () => {
+  const sw = swTroca({ salvo: { endpoint: 'https://fcm.googleapis.com/guardado' } });
+  await sw.disparar({ oldSubscription: null, newSubscription: null });
+  assert.deepEqual(JSON.parse(JSON.stringify(sw.inscritas)), [{ userVisibleOnly: true, applicationServerKey: 'BChavePublica' }]);
+  const p = sw.pedidos.find((x) => x.metodo === 'POST');
+  assert.equal(p.corpo.antigo, 'https://fcm.googleapis.com/guardado');
+  assert.equal(p.corpo.nova.endpoint, 'https://fcm.googleapis.com/criada-no-sw');
+});
+
+test('service worker: sem saber o endereço antigo, ou se nada mudou, não chama a função', async () => {
+  const sw1 = swTroca();
+  await sw1.disparar({ oldSubscription: null, newSubscription: null });
+  assert.equal(sw1.pedidos.length, 0);
+  const sw2 = swTroca({ salvo: { endpoint: 'https://fcm.googleapis.com/igual' }, atual: 'https://fcm.googleapis.com/igual' });
+  await sw2.disparar({ oldSubscription: null, newSubscription: null });
+  assert.equal(sw2.pedidos.filter((x) => x.metodo === 'POST').length, 0);
+});
