@@ -5,6 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Controle de Finanças Pessoais</title>
 <meta name="theme-color" content="#3B2416">
+<script>
+  // Tema antes de desenhar a página (evita piscar no claro). Valores: auto | claro | escuro.
+  (function () {
+    var t = 'auto';
+    try { t = localStorage.getItem('tema') || 'auto'; } catch (e) {}
+    if (t === 'claro' || t === 'escuro') document.documentElement.setAttribute('data-tema', t);
+    var escuro = t === 'escuro' || (t === 'auto' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+    document.querySelector('meta[name="theme-color"]').setAttribute('content', escuro ? '#2B1E16' : '#3B2416');
+  })();
+</script>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icone-180.png">
 <link rel="icon" type="image/png" href="icone-192.png">
@@ -21,11 +31,38 @@
   --espresso: #3B2416; --mocha: #6F4E37; --caramelo: #C68B59; --latte: #E8D3B9;
   --creme: #F5EBDD; --espuma: #FBF6EF; --receita: #5B7A3A; --alerta: #B5543A;
   --texto-suave: #7A5C46; --linha: #E2CDB2; --raio: 12px;
+  /* papéis (o tema escuro troca estes) */
+  --texto: #3B2416; --barra: #3B2416; --sobre-barra: #FBF6EF; --sobre-cor: #FBF6EF;
+  --principal: #3B2416; --sobre-principal: #FBF6EF; --principal-hover: #6F4E37;
+  --borda-campo: #D9BFA0; --atencao: #D08A3E; --sobra: #B9CFA0; --grafico-forte: #3B2416;
+  --sobre-barra-suave: #E8D3B9; --chip-ativo: #6F4E37;
+  color-scheme: light;
   --fonte: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --fonte-titulo: 'Fraunces', Georgia, serif;
 }
+/* Tema escuro: escolhido em Configurações (data-tema="escuro") ou automático, seguindo o celular. */
+:root[data-tema="escuro"] {
+    --creme: #18120E; --espuma: #241A14; --latte: #3A2A20; --linha: #33261D; --mocha: #9C7A5E;
+    --texto-suave: #B59C85; --receita: #8DB36A; --alerta: #E07A5F;
+    --texto: #F2E6D8; --barra: #2B1E16; --sobre-barra: #F2E6D8;
+    --principal: #F2E6D8; --sobre-principal: #241A14; --principal-hover: #E8D3B9;
+    --borda-campo: #5A4232; --atencao: #E0A05A; --sobra: #4E6B3A; --grafico-forte: #E8D3B9;
+    --sobre-barra-suave: #C9B29A; --chip-ativo: #6B4C38;
+    color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) {
+    --creme: #18120E; --espuma: #241A14; --latte: #3A2A20; --linha: #33261D; --mocha: #9C7A5E;
+    --texto-suave: #B59C85; --receita: #8DB36A; --alerta: #E07A5F;
+    --texto: #F2E6D8; --barra: #2B1E16; --sobre-barra: #F2E6D8;
+    --principal: #F2E6D8; --sobre-principal: #241A14; --principal-hover: #E8D3B9;
+    --borda-campo: #5A4232; --atencao: #E0A05A; --sobra: #4E6B3A; --grafico-forte: #E8D3B9;
+    --sobre-barra-suave: #C9B29A; --chip-ativo: #6B4C38;
+    color-scheme: dark;
+  }
+}
 * { box-sizing: border-box; }
-html, body { margin: 0; background: var(--creme); color: var(--espresso); font-family: var(--fonte); font-size: 15px; line-height: 1.45; }
+html, body { margin: 0; background: var(--creme); color: var(--texto); font-family: var(--fonte); font-size: 15px; line-height: 1.45; }
 body { min-height: 100vh; -webkit-tap-highlight-color: transparent; }
 [hidden] { display: none !important; }
 h1, h2, h3 { font-family: var(--fonte-titulo); font-weight: 600; margin: 0; letter-spacing: -0.01em; }
@@ -37,19 +74,19 @@ button { cursor: pointer; }
 /* Botões e campos */
 .btn { border: 1px solid var(--latte); background: var(--espuma); border-radius: 10px; padding: 9px 14px; display: inline-flex; align-items: center; gap: 6px; }
 .btn:hover { border-color: var(--caramelo); }
-.btn-principal { background: var(--espresso); color: var(--espuma); border-color: var(--espresso); font-weight: 600; }
-.btn-principal:hover { background: var(--mocha); }
+.btn-principal { background: var(--principal); color: var(--sobre-principal); border-color: var(--principal); font-weight: 600; }
+.btn-principal:hover { background: var(--principal-hover); }
 .btn-perigo { color: var(--alerta); }
 .btn-icone { border: none; background: none; padding: 6px; border-radius: 8px; color: var(--mocha); }
 .btn-icone:hover { background: var(--latte); }
 .campo { display: block; margin-top: 12px; }
 .campo > span { display: block; font-size: 12px; color: var(--texto-suave); margin-bottom: 4px; }
-.campo input, .campo select { width: 100%; background: var(--espuma); border: 1px solid #D9BFA0; border-radius: 10px; padding: 10px 12px; }
+.campo input, .campo select { width: 100%; background: var(--espuma); border: 1px solid var(--borda-campo); border-radius: 10px; padding: 10px 12px; }
 .campo input:focus, .campo select:focus { outline: 2px solid var(--caramelo); outline-offset: 0; }
 .erro { color: var(--alerta); font-size: 13px; min-height: 18px; margin-top: 6px; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chip { border: none; background: var(--latte); color: var(--espresso); border-radius: 999px; padding: 6px 12px; font-size: 13px; display: inline-flex; align-items: center; gap: 4px; }
-.chip.ativo { background: var(--mocha); color: var(--espuma); }
+.chip { border: none; background: var(--latte); color: var(--texto); border-radius: 999px; padding: 6px 12px; font-size: 13px; display: inline-flex; align-items: center; gap: 4px; }
+.chip.ativo { background: var(--chip-ativo); color: var(--sobre-barra); }
 .chip .ti { font-size: 15px; vertical-align: 0; }
 .cartao { background: var(--espuma); border-radius: var(--raio); padding: 14px; }
 .vazio { text-align: center; color: var(--texto-suave); padding: 28px 12px; }
@@ -65,14 +102,14 @@ button { cursor: pointer; }
 #tela-login .btn-principal { width: 100%; justify-content: center; margin-top: 16px; padding: 12px; }
 
 /* Cabeçalho e menu */
-#cabecalho { position: sticky; top: 0; z-index: 20; background: var(--espresso); color: var(--espuma); display: flex; align-items: center; gap: 8px; padding: 10px 12px; }
-#cabecalho .btn-icone { color: var(--espuma); }
+#cabecalho { position: sticky; top: 0; z-index: 20; background: var(--barra); color: var(--sobre-barra); display: flex; align-items: center; gap: 8px; padding: 10px 12px; }
+#cabecalho .btn-icone { color: var(--sobre-barra); }
 #cabecalho .btn-icone:hover { background: var(--mocha); }
 #olho { margin-left: auto; }
 .linha-check { display: flex; gap: 8px; align-items: flex-start; margin-top: 12px; }
 .linha-check input { width: auto; margin-top: 3px; }
-.campo textarea { width: 100%; background: var(--espuma); border: 1px solid #D9BFA0; border-radius: 10px; padding: 10px 12px; font: inherit; resize: vertical; min-height: 64px; }
-.previa-notif { margin-top: 12px; background: var(--espuma); border: 1px solid #D9BFA0; border-radius: 14px; padding: 10px 12px; display: flex; gap: 10px; }
+.campo textarea { width: 100%; background: var(--espuma); border: 1px solid var(--borda-campo); border-radius: 10px; padding: 10px 12px; font: inherit; resize: vertical; min-height: 64px; }
+.previa-notif { margin-top: 12px; background: var(--espuma); border: 1px solid var(--borda-campo); border-radius: 14px; padding: 10px 12px; display: flex; gap: 10px; }
 .previa-notif img { width: 32px; height: 32px; border-radius: 8px; flex: none; }
 .previa-notif strong { display: block; }
 .previa-notif p { margin: 2px 0 0; white-space: pre-line; font-size: 14px; }
@@ -87,8 +124,8 @@ body.ocultar-valores .num, body.ocultar-valores #resumo-filtro, body.ocultar-val
   filter: blur(7px); user-select: none; transition: filter .15s; }
 body.ocultar-valores #app canvas { pointer-events: none; }
 #cabecalho-titulo { font-family: var(--fonte-titulo); font-size: 18px; flex: 1; }
-#menu { position: absolute; top: 100%; left: 0; right: 0; background: var(--espresso); padding: 6px 8px 12px; display: grid; gap: 2px; box-shadow: 0 8px 20px rgba(59,36,22,.25); }
-#menu button { background: none; border: none; color: var(--espuma); text-align: left; padding: 11px 12px; border-radius: 8px; display: flex; gap: 10px; align-items: center; }
+#menu { position: absolute; top: 100%; left: 0; right: 0; background: var(--barra); padding: 6px 8px 12px; display: grid; gap: 2px; box-shadow: 0 8px 20px rgba(59,36,22,.25); }
+#menu button { background: none; border: none; color: var(--sobre-barra); text-align: left; padding: 11px 12px; border-radius: 8px; display: flex; gap: 10px; align-items: center; }
 #menu button:hover, #menu button.ativo { background: var(--mocha); }
 main { max-width: 980px; margin: 0 auto; padding: 14px 16px 110px; }
 .tela { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-height: 40px; }
@@ -106,7 +143,7 @@ main { max-width: 980px; margin: 0 auto; padding: 14px 16px 110px; }
 .resumo .valor { font-size: 17px; font-weight: 600; }
 .barra { height: 8px; border-radius: 4px; background: var(--latte); overflow: hidden; margin-top: 4px; }
 .barra > div { height: 100%; background: var(--caramelo); border-radius: 4px; }
-.barra.atencao > div { background: #D08A3E; }
+.barra.atencao > div { background: var(--atencao); }
 .barra.estourou > div { background: var(--alerta); }
 .barra.receita > div, .barra.superou > div { background: var(--receita); }
 .orcamento + .orcamento { margin-top: 10px; }
@@ -116,7 +153,7 @@ main { max-width: 980px; margin: 0 auto; padding: 14px 16px 110px; }
 .lista { background: var(--espuma); border-radius: var(--raio); }
 .item { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-bottom: 1px solid var(--linha); }
 .item:last-child { border-bottom: none; }
-.item .icone-tag { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; color: var(--espuma); flex: none; }
+.item .icone-tag { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; color: var(--sobre-cor); flex: none; }
 .item .icone-tag .ti { font-size: 18px; vertical-align: 0; }
 .item .meio { flex: 1; min-width: 0; }
 .item .desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -124,7 +161,7 @@ main { max-width: 980px; margin: 0 auto; padding: 14px 16px 110px; }
 .item .valor { font-weight: 600; white-space: nowrap; }
 .item .acoes { display: flex; }
 .filtros { display: grid; gap: 8px; }
-.filtros input, .filtros select { background: var(--espuma); border: 1px solid #D9BFA0; border-radius: 10px; padding: 8px 10px; width: 100%; }
+.filtros input, .filtros select { background: var(--espuma); border: 1px solid var(--borda-campo); border-radius: 10px; padding: 8px 10px; width: 100%; }
 .filtros .linha { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
 .filtros select, .campo select { min-width: 0; max-width: 100%; text-overflow: ellipsis; }
 .acoes-filtro { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -134,8 +171,8 @@ main { max-width: 980px; margin: 0 auto; padding: 14px 16px 110px; }
 #filtro-subtag { grid-column: 1 / -1; }
 
 /* Botão flutuante */
-#novo-lancamento { position: fixed; right: 16px; bottom: 20px; z-index: 15; border: none; background: var(--espresso); color: var(--espuma); border-radius: 999px; padding: 14px 20px; font-weight: 600; box-shadow: 0 6px 18px rgba(59,36,22,.35); display: flex; gap: 6px; align-items: center; }
-#novo-lancamento:hover { background: var(--mocha); }
+#novo-lancamento { position: fixed; right: 16px; bottom: 20px; z-index: 15; border: none; background: var(--principal); color: var(--sobre-principal); border-radius: 999px; padding: 14px 20px; font-weight: 600; box-shadow: 0 6px 18px rgba(59,36,22,.35); display: flex; gap: 6px; align-items: center; }
+#novo-lancamento:hover { background: var(--principal-hover); }
 
 /* Janela (painel de baixo no celular, janela central no computador) */
 #modal-fundo { position: fixed; inset: 0; z-index: 30; background: rgba(59,36,22,.45); display: flex; align-items: flex-end; justify-content: center; }
@@ -148,7 +185,7 @@ main { max-width: 980px; margin: 0 auto; padding: 14px 16px 110px; }
 .rodape-modal .btn-principal { flex: 1; justify-content: center; padding: 12px; }
 
 /* Aviso rápido */
-#aviso { position: fixed; left: 50%; transform: translateX(-50%); bottom: 90px; z-index: 40; background: var(--espresso); color: var(--espuma); padding: 10px 16px; border-radius: 10px; font-size: 14px; max-width: 90vw; }
+#aviso { position: fixed; left: 50%; transform: translateX(-50%); bottom: 90px; z-index: 40; background: var(--principal); color: var(--sobre-principal); padding: 10px 16px; border-radius: 10px; font-size: 14px; max-width: 90vw; }
 #aviso.erro-aviso { background: var(--alerta); }
 
 /* Grades de tags, metas, ano */
@@ -168,7 +205,7 @@ main { max-width: 980px; margin: 0 auto; padding: 14px 16px 110px; }
 .bloco-nova-sub { margin-top: 8px; }
 .parc-linha { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
 .parc-linha > span { flex: 0 0 90px; font-size: 13px; color: var(--texto-suave); }
-.parc-linha input { flex: 1; min-width: 0; text-align: right; background: var(--espuma); border: 1px solid #D9BFA0; border-radius: 10px; padding: 8px 10px; }
+.parc-linha input { flex: 1; min-width: 0; text-align: right; background: var(--espuma); border: 1px solid var(--borda-campo); border-radius: 10px; padding: 8px 10px; }
 .btn-mini { padding: 4px 10px; font-size: 13px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .orc-linha { padding: 10px 0; border-bottom: 1px solid var(--linha); }
@@ -176,20 +213,20 @@ main { max-width: 980px; margin: 0 auto; padding: 14px 16px 110px; }
 .orc-topo { display: flex; align-items: center; gap: 8px; }
 .orc-nome { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .orc-campo { flex: 0 0 120px; }
-.orc-limite { width: 100%; text-align: right; background: var(--creme); border: 1px solid #D9BFA0; border-radius: 8px; padding: 6px 8px; }
+.orc-limite { width: 100%; text-align: right; background: var(--creme); border: 1px solid var(--borda-campo); border-radius: 8px; padding: 6px 8px; }
 .orc-limite:focus { outline: 2px solid var(--caramelo); }
 .barra-empilhada { display: flex; height: 16px; border-radius: 8px; overflow: hidden; background: var(--latte); margin-top: 8px; }
 .barra-empilhada > div { height: 100%; }
-#orc-encaixe.encaixa { border: 1px solid #B9CFA0; }
+#orc-encaixe.encaixa { border: 1px solid var(--sobra); }
 #orc-encaixe.nao-encaixa { border: 1px solid var(--alerta); }
 #orc-encaixe.nao-encaixa p:first-of-type { color: var(--alerta); font-weight: 600; }
 .nota-extra { margin-top: 4px; }
 .tag-linha.arquivada { opacity: .55; }
-.bolinha { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; color: var(--espuma); flex: none; }
+.bolinha { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; color: var(--sobre-cor); flex: none; }
 .bolinha .ti { font-size: 15px; vertical-align: 0; }
 .paleta { display: flex; flex-wrap: wrap; gap: 6px; }
 .paleta button { width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; }
-.paleta button.ativo { border-color: var(--espresso); }
+.paleta button.ativo { border-color: var(--texto); }
 .icones { display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 4px; }
 .icones button { border: 1px solid transparent; background: var(--espuma); border-radius: 8px; padding: 6px 0; }
 .icones button.ativo { border-color: var(--mocha); background: var(--latte); }
@@ -229,7 +266,7 @@ main { max-width: 980px; margin: 0 auto; padding: 14px 16px 110px; }
     <button class="btn-icone" id="menu-botao" aria-label="Abrir menu" aria-expanded="false"><i class="ti ti-menu-2"></i></button>
     <span id="cabecalho-titulo">Controle de Finanças Pessoais</span>
     <button class="btn-icone" id="olho" aria-label="Ocultar valores" aria-pressed="false" title="Ocultar valores"><i class="ti ti-eye"></i></button>
-    <span id="cabecalho-usuario" class="suave" style="color: var(--latte)"></span>
+    <span id="cabecalho-usuario" class="suave" style="color: var(--sobre-barra-suave)"></span>
     <nav id="menu" hidden>
       <button data-tela="mes"><i class="ti ti-calendar-month"></i>Mês</button>
       <button data-tela="orcamento"><i class="ti ti-report-money"></i>Orçamento</button>
@@ -1614,7 +1651,7 @@ TELAS.metas = async function (el) {
         ${meu ? `<span><button class="btn-icone meta-guardar" aria-label="Guardar dinheiro"><i class="ti ti-pig-money"></i></button>
         <button class="btn-icone meta-excluir" aria-label="Excluir meta"><i class="ti ti-trash"></i></button></span>`
         : `<span class="suave">${esc(nomePessoa(g.owner_id))}</span>`}</div>
-      <div class="barra" style="margin:10px 0 6px"><div style="width:${Math.min(100, pct)}%; background:var(--espresso)"></div></div>
+      <div class="barra" style="margin:10px 0 6px"><div style="width:${Math.min(100, pct)}%; background:var(--grafico-forte)"></div></div>
       <div class="suave">${num(v)} de ${brlLim(g.target_cents)}${g.deadline ? ` · até ${mesCurto(g.deadline)}` : ''} · ${pct}%</div>
     </div>`;
   }).join('');
@@ -1735,7 +1772,7 @@ TELAS.orcamento = async function (el) {
   const escalaBarra = Math.max(renda, planejado, 1);
   const segmentos = despesas.filter((t) => limite.has(t.id)).map((t) =>
     `<div title="${esc(t.name)}" style="width:${(limite.get(t.id).monthly_cents / escalaBarra) * 100}%; background:${esc(t.color)}"></div>`).join('') +
-    (renda > planejado ? `<div title="Sobra" style="width:${((renda - planejado) / escalaBarra) * 100}%; background:#B9CFA0"></div>` : '');
+    (renda > planejado ? `<div title="Sobra" style="width:${((renda - planejado) / escalaBarra) * 100}%; background:var(--sobra)"></div>` : '');
 
   const investe = tagsDeInvestimento(meus, state.tags);
   const linhaDespesa = (t) => {
@@ -2042,8 +2079,14 @@ TELAS.config = async function (el) {
       <label class="campo"><span>Nome de exibição</span><input id="config-nome" value="${esc(eu.name)}"></label>
       <button class="btn" id="config-salvar-nome" style="margin-top:10px">Salvar nome</button>
       <p class="suave">Entrou como ${esc(state.user.email || '')}.</p></div>
+    <div class="cartao"><h2>Aparência</h2>
+      <div class="chips" id="tema-opcoes">
+        <button type="button" class="chip" data-tema="auto"><i class="ti ti-device-mobile"></i>Automático</button>
+        <button type="button" class="chip" data-tema="claro"><i class="ti ti-sun"></i>Claro</button>
+        <button type="button" class="chip" data-tema="escuro"><i class="ti ti-moon"></i>Escuro</button></div>
+      <p class="suave" style="margin-bottom:0">Automático segue o tema do celular ou do computador. A escolha fica guardada neste aparelho.</p></div>
     <div class="cartao" id="lembrete-cartao"><h2>Lembrete diário</h2><p class="suave">Carregando…</p></div>
-    <div class="cartao" id="frases-cartao"><h2>Frases no lembrete</h2></div>
+    <div class="cartao" id="frases-cartao"><h2>Minhas frases</h2></div>
     <div class="cartao"><h2>Backup e exportação</h2>
       <p class="suave">O backup em JSON guarda tudo e pode ser importado de volta. Guarde uma cópia de vez em quando (Drive, e-mail ou GitHub).</p>
       <div class="chips"><button class="btn" id="exportar-json"><i class="ti ti-download"></i>Exportar backup (JSON)</button>
@@ -2101,6 +2144,13 @@ TELAS.config = async function (el) {
     ev.target.value = '';
   });
 
+  const desenharTema = () => $$('#tema-opcoes [data-tema]', el).forEach((b) => {
+    const on = b.dataset.tema === lerTema();
+    b.classList.toggle('ativo', on); b.setAttribute('aria-pressed', String(on));
+  });
+  desenharTema();
+  $$('#tema-opcoes [data-tema]', el).forEach((b) => b.addEventListener('click', () => { escolherTema(b.dataset.tema); desenharTema(); }));
+
   await montarLembrete(el);
 };
 
@@ -2144,7 +2194,8 @@ async function reconectarAparelho() {
 }
 
 async function montarLembrete(el) {
-  const L = { cfg: { ...LEMBRETE_PADRAO }, frases: [], inscricoes: [], sub: null, editando: null };
+  // salvo = o que está no banco; rascunho = o que está na tela. Só o botão Salvar grava o rascunho.
+  const L = { salvo: { ...LEMBRETE_PADRAO }, rascunho: null, frases: [], inscricoes: [], sub: null, editando: null };
   const cartao = $('#lembrete-cartao', el);
   await reconectarAparelho().catch(() => null);
   try {
@@ -2152,8 +2203,8 @@ async function montarLembrete(el) {
       store.list('lembrete_config'), store.list('frases'), store.list('push_inscricoes'),
       pushAparelho.suportado() ? pushAparelho.inscricaoAtual().catch(() => null) : null]);
     const meu = cfgs.find((c) => c.owner_id === state.user.id);
-    if (meu) for (const k of CAMPOS_LEMBRETE) if (meu[k] != null) L.cfg[k] = meu[k];
-    L.cfg.hora = String(L.cfg.hora).slice(0, 5);
+    if (meu) for (const k of CAMPOS_LEMBRETE) if (meu[k] != null) L.salvo[k] = meu[k];
+    L.salvo.hora = String(L.salvo.hora).slice(0, 5);
     L.frases = frases;
     L.inscricoes = filtrarDono(inscricoes);
     L.sub = sub;
@@ -2162,24 +2213,41 @@ async function montarLembrete(el) {
     $('#frases-cartao', el).hidden = true;
     return;
   }
+  const copia = (c) => ({ ...c, dias: [...c.dias], autores_desligados: [...c.autores_desligados] });
+  L.rascunho = copia(L.salvo);
+  const R = () => L.rascunho;
+  const normal = (c) => JSON.stringify(CAMPOS_LEMBRETE.map((k) => (k === 'titulo' || k === 'mensagem' ? String(c[k]).trim() : c[k])));
+  const alterado = () => normal(L.rascunho) !== normal(L.salvo);
 
   const status = (texto, erro) => { const s = $('#lembrete-status', el); s.textContent = texto; s.className = erro ? 'erro' : 'suave'; };
-  async function salvar(campos) {
-    const novo = { ...L.cfg, ...campos };
-    if (!novo.dias.length) { status('Escolha pelo menos um dia.', true); return false; }
-    if (!String(novo.titulo).trim()) { status('O título não pode ficar vazio.', true); return false; }
-    const linha = { owner_id: state.user.id };
-    for (const k of CAMPOS_LEMBRETE) linha[k] = novo[k];
-    try { await store.upsert('lembrete_config', linha); } catch (e) { status(e.message, true); return false; }
-    L.cfg = novo;
-    status('Salvo ✓');
+  function marcarMudanca() {
+    status(alterado() ? 'Alterações não salvas' : '');
     desenharPrevia();
-    return true;
+  }
+  async function gravar(cfg) {
+    const linha = { owner_id: state.user.id };
+    for (const k of CAMPOS_LEMBRETE) linha[k] = k === 'titulo' || k === 'mensagem' ? String(cfg[k]).trim() : cfg[k];
+    await store.upsert('lembrete_config', linha);
+    return linha;
+  }
+  async function salvar() {
+    const r = R();
+    if (!r.dias.length) { status('Escolha pelo menos um dia.', true); return; }
+    if (!String(r.titulo).trim()) { status('O título não pode ficar vazio.', true); return; }
+    const botao = $('#lembrete-salvar', el);
+    botao.disabled = true;
+    try {
+      const linha = await gravar(r);
+      L.salvo = copia({ ...L.salvo, ...linha });
+      L.rascunho.titulo = L.salvo.titulo; L.rascunho.mensagem = L.salvo.mensagem;
+      status('Salvo ✓');
+    } catch (e) { status(e.message, true); }
+    botao.disabled = false;
   }
 
   cartao.innerHTML = `<h2>Lembrete diário</h2>
     <p class="suave" style="margin-top:0">Uma notificação por dia para lembrar de lançar os gastos, com uma frase sobre dinheiro. Cada conta tem a própria configuração.</p>
-    <div id="lembrete-aparelho" class="cartao" style="background:var(--espuma); margin:12px 0 0"></div>
+    <div id="lembrete-aparelho" class="cartao" style="background:var(--creme); margin:12px 0 0"></div>
     <label class="linha-check"><input type="checkbox" id="lembrete-ativo"><span>Lembrete ligado</span></label>
     <label class="campo"><span>Horário</span><input type="time" id="lembrete-hora" step="900"></label>
     <div class="campo"><span>Dias</span><div class="chips" id="lembrete-dias">${DIAS_SEMANA.map(([d, n]) =>
@@ -2188,9 +2256,16 @@ async function montarLembrete(el) {
       <span class="suave">Se você já registrou algo hoje antes do horário do lembrete, a notificação daquele dia não chega.</span></span></label>
     <label class="campo"><span>Título da notificação</span><input id="lembrete-titulo" maxlength="60"></label>
     <label class="campo"><span>Mensagem</span><textarea id="lembrete-mensagem" maxlength="200" rows="2"></textarea></label>
+    <h3 style="margin:18px 0 0">Frase</h3>
+    <label class="linha-check"><input type="checkbox" id="frase-ativa"><span>Incluir uma frase no lembrete</span></label>
+    <label class="campo"><span>Usar</span><select id="frase-fonte">
+      <option value="todas">Frases prontas e as minhas</option><option value="prontas">Só as frases prontas</option><option value="minhas">Só as minhas frases</option></select></label>
+    <div class="campo"><span>Autores das frases prontas (toque para ligar ou desligar)</span><div class="chips" id="frase-autores"></div></div>
     <div class="campo"><span>Como vai aparecer (a frase muda a cada dia)</span><div id="lembrete-previa"></div></div>
-    <div class="chips" style="margin-top:12px"><button class="btn" id="lembrete-testar"><i class="ti ti-send"></i>Enviar teste agora</button></div>
-    <p id="lembrete-status" class="suave" role="status"></p>`;
+    <p id="lembrete-status" class="suave" role="status"></p>
+    <div class="chips" style="margin-top:4px">
+      <button class="btn btn-principal" id="lembrete-salvar">Salvar</button>
+      <button class="btn" id="lembrete-testar"><i class="ti ti-send"></i>Enviar teste agora</button></div>`;
 
   // ---- aparelho ----
   function desenharAparelho() {
@@ -2222,7 +2297,13 @@ async function montarLembrete(el) {
         gravarQuerReceberAqui(true);
         L.sub = sub;
         L.inscricoes = [...L.inscricoes.filter((i) => i.endpoint !== sub.endpoint), { endpoint: sub.endpoint, owner_id: state.user.id }];
-        if (!L.cfg.ativo) { await salvar({ ativo: true }); $('#lembrete-ativo', el).checked = true; }
+        if (!L.salvo.ativo) {
+          // Ligar o aparelho já liga o lembrete no banco, sem gravar o resto do rascunho.
+          await gravar({ ...L.salvo, ativo: true });
+          L.salvo.ativo = true; L.rascunho.ativo = true;
+          $('#lembrete-ativo', el).checked = true;
+          marcarMudanca();
+        }
         avisar('Pronto! Este aparelho vai receber os lembretes.');
       } catch (e) {
         if (e.code !== 'negado') avisar(e.message || String(e), 'erro');
@@ -2246,49 +2327,71 @@ async function montarLembrete(el) {
     });
   }
 
-  // ---- campos ----
-  const c = L.cfg;
-  $('#lembrete-ativo', el).checked = c.ativo;
-  $('#lembrete-hora', el).value = c.hora;
-  $('#lembrete-pular', el).checked = c.pular_se_lancou;
-  $('#lembrete-titulo', el).value = c.titulo;
-  $('#lembrete-mensagem', el).value = c.mensagem;
+  // ---- campos (mudam só o rascunho) ----
+  const r = R();
+  $('#lembrete-ativo', el).checked = r.ativo;
+  $('#lembrete-hora', el).value = r.hora;
+  $('#lembrete-pular', el).checked = r.pular_se_lancou;
+  $('#lembrete-titulo', el).value = r.titulo;
+  $('#lembrete-mensagem', el).value = r.mensagem;
+  $('#frase-ativa', el).checked = r.com_frase;
+  $('#frase-fonte', el).value = r.fonte_frases;
   const desenharDias = () => $$('#lembrete-dias [data-dia]', el).forEach((b) => {
-    const on = L.cfg.dias.includes(Number(b.dataset.dia));
+    const on = R().dias.includes(Number(b.dataset.dia));
     b.classList.toggle('ativo', on); b.setAttribute('aria-pressed', String(on));
   });
+  function desenharAutores() {
+    const autores = autoresDasFrases(L.frases);
+    $('#frase-autores', el).innerHTML = autores.map((a) => {
+      const on = !R().autores_desligados.includes(a.autor);
+      return `<button type="button" class="chip ${on ? 'ativo' : ''}" aria-pressed="${on}" data-autor="${esc(a.autor)}">${esc(a.autor)} (${a.n})</button>`;
+    }).join('') || '<span class="suave">Nenhuma frase pronta no banco ainda.</span>';
+    $$('#frase-autores [data-autor]', el).forEach((b) => b.addEventListener('click', () => {
+      const a = b.dataset.autor;
+      const off = R().autores_desligados;
+      R().autores_desligados = off.includes(a) ? off.filter((x) => x !== a) : [...off, a];
+      desenharAutores(); marcarMudanca();
+    }));
+  }
   desenharDias();
-  $('#lembrete-ativo', el).addEventListener('change', (ev) => salvar({ ativo: ev.target.checked }));
-  $('#lembrete-hora', el).addEventListener('change', (ev) => { if (ev.target.value) salvar({ hora: ev.target.value.slice(0, 5) }); });
-  $('#lembrete-pular', el).addEventListener('change', (ev) => salvar({ pular_se_lancou: ev.target.checked }));
-  $('#lembrete-titulo', el).addEventListener('change', (ev) => salvar({ titulo: ev.target.value.trim() }));
-  $('#lembrete-mensagem', el).addEventListener('change', (ev) => salvar({ mensagem: ev.target.value.trim() }));
-  $$('#lembrete-dias [data-dia]', el).forEach((b) => b.addEventListener('click', async () => {
+  desenharAutores();
+  const mudar = (campo, valor) => { R()[campo] = valor; marcarMudanca(); };
+  $('#lembrete-ativo', el).addEventListener('change', (ev) => mudar('ativo', ev.target.checked));
+  for (const tipo of ['input', 'change']) {
+    $('#lembrete-hora', el).addEventListener(tipo, (ev) => { if (ev.target.value) mudar('hora', ev.target.value.slice(0, 5)); });
+    $('#lembrete-titulo', el).addEventListener(tipo, (ev) => mudar('titulo', ev.target.value));
+    $('#lembrete-mensagem', el).addEventListener(tipo, (ev) => mudar('mensagem', ev.target.value));
+  }
+  $('#lembrete-pular', el).addEventListener('change', (ev) => mudar('pular_se_lancou', ev.target.checked));
+  $('#frase-ativa', el).addEventListener('change', (ev) => mudar('com_frase', ev.target.checked));
+  $('#frase-fonte', el).addEventListener('change', (ev) => mudar('fonte_frases', ev.target.value));
+  $$('#lembrete-dias [data-dia]', el).forEach((b) => b.addEventListener('click', () => {
     const d = Number(b.dataset.dia);
-    const dias = L.cfg.dias.includes(d) ? L.cfg.dias.filter((x) => x !== d) : [...L.cfg.dias, d].sort((x, y) => x - y);
-    await salvar({ dias });
-    desenharDias();
+    const dias = R().dias;
+    R().dias = dias.includes(d) ? dias.filter((x) => x !== d) : [...dias, d].sort((x, y) => x - y);
+    desenharDias(); marcarMudanca();
   }));
+  $('#lembrete-salvar', el).addEventListener('click', salvar);
   $('#lembrete-testar', el).addEventListener('click', async (ev) => {
+    if (alterado()) { status('Salve as alterações antes de testar.', true); return; }
     ev.target.disabled = true;
-    const r = await tentar(() => store.invokeFunction('lembrete-diario', { body: { acao: 'teste' } }));
-    if (r) avisar(`Teste enviado para ${r.enviados} ${r.enviados === 1 ? 'aparelho' : 'aparelhos'}. Pode levar alguns segundos.`);
+    const res = await tentar(() => store.invokeFunction('lembrete-diario', { body: { acao: 'teste' } }));
+    if (res) avisar(`Teste enviado para ${res.enviados} ${res.enviados === 1 ? 'aparelho' : 'aparelhos'}. Pode levar alguns segundos.`);
     ev.target.disabled = false;
   });
 
-  // ---- prévia ----
+  // ---- prévia (acompanha o rascunho) ----
   function desenharPrevia() {
-    const possiveis = frasesPermitidas(L.frases, L.cfg, state.user.id);
+    const possiveis = frasesPermitidas(L.frases, R(), state.user.id);
     const exemplo = possiveis.find((f) => f.owner_id === state.user.id) || possiveis[0] || null;
-    const t = textoLembrete(L.cfg, exemplo);
+    const t = textoLembrete({ ...R(), titulo: String(R().titulo).trim(), mensagem: String(R().mensagem).trim() }, exemplo);
     $('#lembrete-previa', el).innerHTML = `<div class="previa-notif"><img src="icone-192.png" alt="">
       <div><strong>${esc(t.titulo)}</strong><p>${esc(t.corpo)}</p></div></div>`;
   }
 
-  // ---- frases ----
+  // ---- minhas frases (adicionar, editar e excluir gravam na hora) ----
   const fc = $('#frases-cartao', el);
   function desenharFrases() {
-    const autores = autoresDasFrases(L.frases);
     const minhas = L.frases.filter((f) => f.owner_id === state.user.id);
     const prontas = L.frases.filter((f) => f.owner_id == null);
     const linhaMinha = (f) => L.editando === f.id
@@ -2300,16 +2403,8 @@ async function montarLembrete(el) {
       : `<div class="frase-linha" data-id="${f.id}"><span>“${esc(f.texto)}”${f.autor ? ` <span class="suave">— ${esc(f.autor)}</span>` : ''}</span>
           <button class="btn-icone frase-editar" aria-label="Editar frase"><i class="ti ti-pencil"></i></button>
           <button class="btn-icone frase-excluir" aria-label="Excluir frase"><i class="ti ti-trash"></i></button></div>`;
-    fc.innerHTML = `<h2>Frases no lembrete</h2>
-      <label class="linha-check"><input type="checkbox" id="frase-ativa" ${L.cfg.com_frase ? 'checked' : ''}><span>Incluir uma frase no lembrete</span></label>
-      <label class="campo"><span>Usar</span><select id="frase-fonte">
-        <option value="todas">Frases prontas e as minhas</option><option value="prontas">Só as frases prontas</option><option value="minhas">Só as minhas frases</option></select></label>
-      <div class="campo"><span>Autores das frases prontas (toque para ligar ou desligar)</span>
-        <div class="chips" id="frase-autores">${autores.map((a) => {
-          const on = !L.cfg.autores_desligados.includes(a.autor);
-          return `<button type="button" class="chip ${on ? 'ativo' : ''}" aria-pressed="${on}" data-autor="${esc(a.autor)}">${esc(a.autor)} (${a.n})</button>`;
-        }).join('') || '<span class="suave">Nenhuma frase pronta no banco ainda.</span>'}</div></div>
-      <h3 style="margin:16px 0 0">Minhas frases</h3>
+    fc.innerHTML = `<h2>Minhas frases</h2>
+      <p class="suave" style="margin-top:0">Só você vê as suas. Elas entram no sorteio quando "Usar" inclui as suas frases.</p>
       <div id="minhas-frases">${minhas.map(linhaMinha).join('') || '<p class="suave">Nenhuma frase sua ainda.</p>'}</div>
       <label class="campo"><span>Nova frase</span><textarea id="frase-nova-texto" maxlength="280" rows="2" placeholder="Ex.: Pague-se primeiro."></textarea></label>
       <label class="campo"><span>Autor (opcional)</span><input id="frase-nova-autor" maxlength="60"></label>
@@ -2317,14 +2412,6 @@ async function montarLembrete(el) {
       <div class="chips" style="margin-top:8px"><button class="btn" id="frase-adicionar"><i class="ti ti-plus"></i>Adicionar frase</button></div>
       <details style="margin-top:12px"><summary>Ver as ${prontas.length} frases prontas</summary>
         <ul class="lista-prontas">${prontas.map((f) => `<li>“${esc(f.texto)}” <span class="suave">— ${esc(f.autor)}</span></li>`).join('')}</ul></details>`;
-    $('#frase-fonte', fc).value = L.cfg.fonte_frases;
-    $('#frase-ativa', fc).addEventListener('change', (ev) => salvar({ com_frase: ev.target.checked }));
-    $('#frase-fonte', fc).addEventListener('change', (ev) => salvar({ fonte_frases: ev.target.value }));
-    $$('#frase-autores [data-autor]', fc).forEach((b) => b.addEventListener('click', async () => {
-      const a = b.dataset.autor;
-      const off = L.cfg.autores_desligados.includes(a) ? L.cfg.autores_desligados.filter((x) => x !== a) : [...L.cfg.autores_desligados, a];
-      if (await salvar({ autores_desligados: off })) desenharFrases();
-    }));
     $('#frase-adicionar', fc).addEventListener('click', async () => {
       const texto = $('#frase-nova-texto', fc).value.trim();
       const autor = $('#frase-nova-autor', fc).value.trim();
@@ -2376,6 +2463,31 @@ async function importarBackup(tabelas) {
     }
   }
   return r;
+}
+
+// ---------- tema (auto segue o celular; claro; escuro) ----------
+function lerTema() { try { return localStorage.getItem('tema') || 'auto'; } catch (e) { return 'auto'; } }
+function temaEscuroAtivo() {
+  const t = lerTema();
+  return t === 'escuro' || (t === 'auto' && !!window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+}
+function aplicarTema() {
+  const t = lerTema();
+  if (t === 'claro' || t === 'escuro') document.documentElement.setAttribute('data-tema', t);
+  else document.documentElement.removeAttribute('data-tema');
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', temaEscuroAtivo() ? '#2B1E16' : '#3B2416');
+}
+function escolherTema(t) {
+  try { localStorage.setItem('tema', t); } catch (e) { /* ignora */ }
+  aplicarTema();
+}
+// Celular trocou de claro para escuro (ou o contrário) com o app aberto: acompanha e redesenha os gráficos.
+if (window.matchMedia) {
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    aplicarTema();
+    if (state.user && Object.keys(graficos).length) router.go(state.tela);
+  });
 }
 
 // ---------- ocultar valores (para mostrar o app a alguém) ----------
@@ -2447,17 +2559,30 @@ const graficos = {};
 const BRL_INTEIRO = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 function reais(cents) { return Math.round(cents) / 100; }
 
+// Cores dos gráficos lidas do tema na hora de desenhar (claro ou escuro).
+function corTema(nome) { return getComputedStyle(document.documentElement).getPropertyValue(nome).trim(); }
+// O café-escuro e o mocha das séries somem no fundo escuro: trocados pelas versões do tema.
+function corDaSerie(c) {
+  const troca = (x) => (x === '#3B2416' ? corTema('--grafico-forte') : x === '#6F4E37' ? corTema('--mocha') : x);
+  return Array.isArray(c) ? c.map(troca) : troca(c);
+}
+
 function desenharGrafico(canvasId, tipo, labels, datasets, opcoes = {}) {
   const canvas = document.getElementById(canvasId);
   if (!canvas || !window.Chart) return;
   if (graficos[canvasId]) graficos[canvasId].destroy();
+  datasets = datasets.map((d) => ({ ...d,
+    ...(d.backgroundColor ? { backgroundColor: corDaSerie(d.backgroundColor) } : {}),
+    ...(d.borderColor ? { borderColor: corDaSerie(d.borderColor) } : {}),
+    ...(tipo === 'doughnut' ? { borderColor: corTema('--espuma') } : {}) }));
+  const textoSuave = corTema('--texto-suave'), grade = corTema('--latte');
   const horizontal = opcoes.horizontal;
   const valores = datasets.flatMap((d) => d.data).filter((v) => typeof v === 'number');
   const esc_ = escalaEixo(Math.max(0, ...valores));
   const temNegativo = valores.some((v) => v < 0);
   const eixoValor = {
     min: temNegativo ? undefined : 0, max: esc_.max, beginAtZero: true,
-    ticks: { color: '#7A5C46', stepSize: esc_.step, callback: (v) => BRL_INTEIRO.format(v) },
+    ticks: { color: textoSuave, stepSize: esc_.step, callback: (v) => BRL_INTEIRO.format(v) },
   };
   graficos[canvasId] = new Chart(canvas, {
     type: tipo,
@@ -2465,7 +2590,7 @@ function desenharGrafico(canvasId, tipo, labels, datasets, opcoes = {}) {
     options: {
       responsive: true, maintainAspectRatio: false, indexAxis: horizontal ? 'y' : 'x',
       plugins: {
-        legend: { display: datasets.length > 1 || tipo === 'doughnut', position: tipo === 'doughnut' ? 'right' : 'top', labels: { color: '#3B2416', boxWidth: 12, font: { family: 'Inter' } } },
+        legend: { display: datasets.length > 1 || tipo === 'doughnut', position: tipo === 'doughnut' ? 'right' : 'top', labels: { color: corTema('--texto'), boxWidth: 12, font: { family: 'Inter' } } },
         tooltip: { callbacks: { label: (c) => {
           const v = typeof c.parsed === 'number' ? c.parsed : c.parsed[horizontal ? 'x' : 'y'];
           const nome = tipo === 'doughnut' ? c.label : c.dataset.label;
@@ -2473,11 +2598,11 @@ function desenharGrafico(canvasId, tipo, labels, datasets, opcoes = {}) {
         } } },
       },
       scales: tipo === 'doughnut' ? {} : horizontal ? {
-        x: { grid: { color: '#E8D3B9' }, ...eixoValor },
-        y: { grid: { color: 'transparent' }, ticks: { color: '#7A5C46' } },
+        x: { grid: { color: grade }, ...eixoValor },
+        y: { grid: { color: 'transparent' }, ticks: { color: textoSuave } },
       } : {
-        x: { grid: { color: 'transparent' }, ticks: { color: '#7A5C46' } },
-        y: { grid: { color: '#E8D3B9' }, ...eixoValor },
+        x: { grid: { color: 'transparent' }, ticks: { color: textoSuave } },
+        y: { grid: { color: grade }, ...eixoValor },
       },
       onClick: opcoes.onClick,
     },

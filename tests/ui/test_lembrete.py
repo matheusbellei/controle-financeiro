@@ -54,15 +54,22 @@ class Lembrete(UITest):
         self.assertIn('Tela de Início', self.page.inner_text('#lembrete-aparelho'))
         self.assertEqual(self.page.locator('#lembrete-ativar-aparelho').count(), 0)
 
-    def test_configuracoes_salvam_sozinhas_e_voltam_depois(self):
+    def salvar(self):
+        self.page.click('#lembrete-salvar')
+        self.page.wait_for_selector('#lembrete-status:has-text("Salvo")')
+
+    def test_so_salva_ao_tocar_em_salvar_e_volta_depois(self):
         self.preparar()
         p = self.page
-        p.check('#lembrete-ativo'); self.salvo()
-        p.fill('#lembrete-hora', '07:30'); p.dispatch_event('#lembrete-hora', 'change'); self.salvo()
-        p.click('#lembrete-dias [data-dia="7"]'); self.salvo()
-        p.uncheck('#lembrete-pular'); self.salvo()
-        p.fill('#lembrete-titulo', 'Bora lançar'); p.dispatch_event('#lembrete-titulo', 'change'); self.salvo()
-        p.fill('#lembrete-mensagem', 'Rapidinho!'); p.dispatch_event('#lembrete-mensagem', 'change'); self.salvo()
+        p.check('#lembrete-ativo')
+        p.fill('#lembrete-hora', '07:30'); p.dispatch_event('#lembrete-hora', 'change')
+        p.click('#lembrete-dias [data-dia="7"]')
+        p.uncheck('#lembrete-pular')
+        p.fill('#lembrete-titulo', 'Bora lançar')
+        p.fill('#lembrete-mensagem', 'Rapidinho!')
+        p.wait_for_selector('#lembrete-status:has-text("Alterações não salvas")')
+        self.assertIsNone(self.cfg(), 'nada vai para o banco antes de Salvar')
+        self.salvar()
         c = self.cfg()
         self.assertEqual((c['ativo'], c['hora'], c['dias'], c['pular_se_lancou'], c['titulo'], c['mensagem']),
                          (True, '07:30', [1, 2, 3, 4, 5, 6], False, 'Bora lançar', 'Rapidinho!'))
@@ -74,38 +81,50 @@ class Lembrete(UITest):
         self.assertFalse(p.is_checked('#lembrete-pular'))
         self.assertIn('Cancelar a notificação se já houver um lançamento no dia', p.inner_text('#lembrete-cartao'))
         self.assertEqual(p.input_value('#lembrete-titulo'), 'Bora lançar')
+        self.assertEqual(p.inner_text('#lembrete-status'), '')
 
     def test_sem_nenhum_dia_nao_salva(self):
         self.preparar()
         p = self.page
-        for d in range(1, 7):
-            p.click(f'#lembrete-dias [data-dia="{d}"]'); self.salvo()
-        p.click('#lembrete-dias [data-dia="7"]')
+        for d in range(1, 8):
+            p.click(f'#lembrete-dias [data-dia="{d}"]')
+        p.click('#lembrete-salvar')
         p.wait_for_selector('#lembrete-status:has-text("pelo menos um dia")')
-        self.assertEqual(self.cfg()['dias'], [7])
-        self.assertEqual(p.get_attribute('#lembrete-dias [data-dia="7"]', 'aria-pressed'), 'true')
+        self.assertIsNone(self.cfg())
 
-    def test_previa_mostra_titulo_mensagem_e_frase(self):
+    def test_titulo_vazio_nao_salva(self):
+        self.preparar()
+        self.page.fill('#lembrete-titulo', '  ')
+        self.page.click('#lembrete-salvar')
+        self.page.wait_for_selector('#lembrete-status:has-text("título")')
+        self.assertIsNone(self.cfg())
+
+    def test_previa_acompanha_sem_salvar(self):
         self.preparar()
         p = self.page
         previa = p.inner_text('#lembrete-previa')
         self.assertIn('Hora de lançar os gastos', previa)
         self.assertIn('Leva um minuto', previa)
         self.assertRegex(previa, r'“.+” — (Warren Buffett|Charlie Munger)')
-        p.uncheck('#frase-ativa'); self.salvo()
+        p.fill('#lembrete-titulo', 'Bora!')
+        self.assertIn('Bora!', p.inner_text('#lembrete-previa'))
+        p.uncheck('#frase-ativa')
         self.assertNotIn('“', p.inner_text('#lembrete-previa'))
+        self.assertIsNone(self.cfg())
 
     def test_frases_origem_autores_e_minhas(self):
         self.preparar()
         p = self.page
-        texto = p.inner_text('#frases-cartao')
+        texto = p.inner_text('#lembrete-cartao')
         self.assertIn('Warren Buffett (2)', texto)
         self.assertIn('Charlie Munger (1)', texto)
-        self.assertNotIn('Frase da Denise', texto)
-        p.click('#frase-autores [data-autor="Charlie Munger"]'); self.salvo()
-        self.assertEqual(self.cfg()['autores_desligados'], ['Charlie Munger'])
+        self.assertNotIn('Frase da Denise', p.inner_text('#app'))
+        p.click('#frase-autores [data-autor="Charlie Munger"]')
         self.assertEqual(p.get_attribute('#frase-autores [data-autor="Charlie Munger"]', 'aria-pressed'), 'false')
-        p.select_option('#frase-fonte', 'minhas'); self.salvo()
+        p.select_option('#frase-fonte', 'minhas')
+        self.assertIsNone(self.cfg())
+        self.salvar()
+        self.assertEqual(self.cfg()['autores_desligados'], ['Charlie Munger'])
         self.assertEqual(self.cfg()['fonte_frases'], 'minhas')
 
         p.fill('#frase-nova-texto', 'Pague-se primeiro.'); p.fill('#frase-nova-autor', 'Eu')
@@ -141,6 +160,29 @@ class Lembrete(UITest):
         p.click('#lembrete-testar')
         p.wait_for_selector('#aviso:has-text("Teste enviado")')
         self.assertIn(['lembrete-diario', 'POST', {'acao': 'teste'}], self.funcoes())
+
+    def test_teste_com_alteracoes_nao_salvas_pede_para_salvar(self):
+        self.preparar()
+        p = self.page
+        p.click('#lembrete-ativar-aparelho')
+        p.wait_for_selector('#lembrete-aparelho:has-text("Este aparelho recebe")')
+        p.fill('#lembrete-titulo', 'Novo título')
+        n = len(self.funcoes())
+        p.click('#lembrete-testar')
+        p.wait_for_selector('#lembrete-status:has-text("Salve as alterações antes de testar")')
+        self.assertEqual(len(self.funcoes()), n)
+
+    def test_ativar_aparelho_nao_salva_o_rascunho(self):
+        self.preparar()
+        p = self.page
+        p.fill('#lembrete-titulo', 'Rascunho')
+        p.click('#lembrete-ativar-aparelho')
+        p.wait_for_selector('#lembrete-aparelho:has-text("Este aparelho recebe")')
+        c = self.cfg()
+        self.assertTrue(c['ativo'])
+        self.assertEqual(c['titulo'], 'Hora de lançar os gastos')
+        self.assertEqual(p.input_value('#lembrete-titulo'), 'Rascunho')
+        self.assertTrue(p.is_checked('#lembrete-ativo'))
 
 
 class ReconexaoDoAparelho(UITest):

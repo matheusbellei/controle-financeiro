@@ -97,6 +97,10 @@ Decisões que o Claude tomou por conta própria. Cada item traz o que acontece s
 - **Ícone da notificação:** sem imagem extra (no Android o logo aparecia duas vezes; o iPhone mostra sempre só o ícone do app). Na barra de status do Android vai um "R$" branco em fundo transparente (`icone-notificacao.png`).
 - **Correção (22/11):** a tela do lembrete dizia "rode a migração 006" mesmo com ela rodada. A busca da configuração ordenava por uma coluna `id` que essa tabela não tem.
 
+## Ajustes de 25/11
+- **Lembrete com botão Salvar:** as mudanças ficam só na tela (a prévia acompanha) até tocar em **Salvar**. Aparece "Alterações não salvas" enquanto houver diferença. As opções de frase (incluir, origem, autores) foram para dentro do card do lembrete, para um Salvar só. "Minhas frases" continua gravando na hora (adicionar, editar, excluir). "Enviar teste" pede para salvar antes, se houver mudança. Tocar em "Receber neste aparelho" liga o lembrete no banco sem gravar o resto do rascunho.
+- **Tema escuro:** Configurações → Aparência: Automático (segue o celular ou o computador), Claro ou Escuro, guardado no aparelho. Aplicado antes de a página aparecer (não pisca no claro). Cores de café escuro; o botão principal fica creme com texto escuro. Os gráficos leem as cores do tema ao desenhar; se o celular trocar de tema com o app aberto, a tela é redesenhada. A barra de status do celular acompanha.
+
 ## Tags e orçamento
 - **Só um nível de subtag.** Uma tag que tem subtags não pode virar subtag.
 - **Limite mensal** fica no formulário da tag principal. Apagar o valor remove o limite.

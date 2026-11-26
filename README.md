@@ -8,6 +8,7 @@ App de finanças pessoais para duas pessoas, num único arquivo (`index.html`), 
 - Dashboards (gasto por tag, mês a mês, comparativo entre anos, aportes) e visão do ano
 - Cada conta vê e edita só os próprios dados, com as próprias tags (garantido no banco)
 - Lembrete diário por notificação, com frases sobre dinheiro (configurável por pessoa)
+- Tema claro, escuro ou automático (segue o celular)
 - Backup em JSON e exportação em CSV
 
 ## Como colocar no ar
